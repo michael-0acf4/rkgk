@@ -1,19 +1,18 @@
-import { Brush, BrushTexture, RkgkEngine } from "./rkgk.js";
+import { Brush, RkgkEngine, texFromImage, texProceduralSoft } from "./rkgk.js";
 async function main() {
-  const tex = await Promise.all([
-    BrushTexture.proceduralSoft(10), // slow
-    BrushTexture.fromImage("textures/pencil.png"),
-    BrushTexture.fromImage("textures/grunge.png"),
-  ]);
+  const texSoft = texProceduralSoft(10);
+  const texPencil = texFromImage("textures/pencil.png");
 
   const brush = new Brush({
-    texture: tex[2],
+    textureLoader: texPencil,
     spacing: 0.25,
     size: 10,
     // TODO: quantize
     // https://docs.thesevenpens.com/drawtab/core-features/pen-pressure/pen-pressure-curve/implementing-pressure-curves
-    pressureCurve: (p) => Math.sqrt(p),
+    pressureCurve: (p) => Math.exp(p),
   });
+
+  brush.setColor("#b5c7d02c");
 
   const canvas = document.getElementById("canvas");
   const rkgk = new RkgkEngine(canvas);

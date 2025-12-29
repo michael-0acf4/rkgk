@@ -3,17 +3,36 @@
 /** @typedef {{ x: number, y: number, pressure: number }} PointerData */
 /** @typedef {{ kind: EventKind, pointer: PointerData, pointerId: number | null }} RkgkEvent */
 /** @typedef {{ lastPos: PointerData, drawing: boolean, activePointerId: number | null }} EventState */
+/** @typedef {{ drawable: HTMLImageElement, width: number, height: number }} BrushTexture */
 
 let GLOBAL_ID = 0;
 const MAX_LAYER_HISTORY = 20;
 
-export class BrushTexture {
-  /**
-   * @param {number} size
-   */
-  static async proceduralSoft(size) {
-    this.canvas = new OffscreenCanvas(size, size);
-    const ctx = this.canvas.getContext("2d");
+/**
+ * @param {OffscreenCanvas | HTMLCanvasElement} canvas
+ */
+async function offscreenCanvasToImage(canvas) {
+  let url;
+  if (canvas instanceof OffscreenCanvas) {
+    const blob = await canvas.convertToBlob({ type: "image/png" });
+    url = URL.createObjectURL(blob);
+  } else {
+    url = canvas.toDataURL("image/png");
+  }
+
+  return await new Promise((resolve) => {
+    const img = new Image();
+    img.src = url;
+    img.onload = () => {
+      resolve({ drawable: img, width: img.width, height: img.height });
+    };
+  });
+}
+
+export function texProceduralSoft(size) {
+  return async (color) => {
+    const canvas = new OffscreenCanvas(size, size);
+    const ctx = canvas.getContext("2d");
 
     const g = ctx.createRadialGradient(
       size / 2,
@@ -23,52 +42,74 @@ export class BrushTexture {
       size / 2,
       size / 2,
     );
-    g.addColorStop(0, "rgba(0,0,0,1)");
+    g.addColorStop(0, color);
     g.addColorStop(1, "rgba(0,0,0,0)");
 
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, size, size);
 
-    return {
-      drawable: this.canvas,
-      width: size,
-      height: size,
-    };
-  }
+    return await offscreenCanvasToImage(canvas);
+  };
+}
 
-  /**
-   * @param {string} url
-   */
-  static async fromImage(url) {
+/**
+ * @param {string} url
+ * @param {string} color
+ */
+export function texFromImage(url) {
+  return (color) => {
     const img = new Image();
     img.src = url;
+
     return new Promise((resolve, reject) => {
-      img.onload = () => {
-        console.warn("Loaded texture", url);
-        resolve({
-          drawable: img,
-          width: img.width,
-          height: img.height,
-        });
+      img.onload = async () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0);
+
+        // Composite source in preserves non-transparent colors canvas
+        // could be useful later idk
+        ctx.globalCompositeOperation = "source-in";
+        ctx.fillStyle = color;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.globalCompositeOperation = "source-over";
+
+        resolve(await offscreenCanvasToImage(canvas));
       };
+
       img.onerror = reject;
     });
-  }
+  };
 }
+
+// IDEA: speed curve: slower strokes => denser
 
 export class Brush {
   constructor({
-    texture,
+    textureLoader,
     spacing,
     size,
     pressureCurve = (p) => p,
   }) {
-    this.texture = texture;
+    this.textureLoader = textureLoader;
+    this.texture = null;
     this.spacing = spacing;
     this.size = size;
     this.pressureCurve = pressureCurve;
 
     this._carry = 0;
+  }
+
+  /**
+   * Recompiles original texture with a color filter
+   * @param {string} color
+   */
+  async setColor(color) {
+    this.color = color;
+    /** @type {BrushTexture} */
+    this.texture = await this.textureLoader(this.color);
   }
 
   /**
