@@ -27,6 +27,7 @@ async function main() {
     if (count < 0) {
       const id = rkgk.layers.at(0)?.id;
       rkgk.removeLayer(id);
+      rkgk.resize(null, 600);
     }
     console.log("next count plz");
     count--;

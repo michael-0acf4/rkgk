@@ -9,7 +9,7 @@ const MAX_LAYER_HISTORY = 20;
 
 export class BrushTexture {
   /**
-   * @param {number} size 
+   * @param {number} size
    */
   static async proceduralSoft(size) {
     this.canvas = new OffscreenCanvas(size, size);
@@ -37,7 +37,7 @@ export class BrushTexture {
   }
 
   /**
-   * @param {string} url 
+   * @param {string} url
    */
   static async fromImage(url) {
     const img = new Image();
@@ -131,8 +131,8 @@ export class Brush {
 
 export class Layer {
   /**
-   * @param {number} width 
-   * @param {number} height 
+   * @param {number} width
+   * @param {number} height
    */
   constructor(width, height) {
     const canvas = new OffscreenCanvas(width, height);
@@ -171,7 +171,7 @@ class RkgkEventBUS {
     this.state = {
       drawing: false,
       lastPos: null,
-      activePointerId: null      
+      activePointerId: null,
     };
   }
 
@@ -239,53 +239,46 @@ export class RkgkEngine {
     return this.layers.find((l) => l.id == id);
   }
 
-  setupDOMEvents() {
-    const { canvas } = this.renderer;
-
-    const getPos = (e) => {
-      const rect = canvas.getBoundingClientRect();
-      return {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-        pressure: e.pressure ?? 0.5,
-      };
+  getDim() {
+    return {
+      width: this.renderer.canvas.width,
+      height: this.renderer.canvas.height,
     };
+  }
 
-    const toBind = {
-      down: ["pointerdown"],
-      up: ["pointerup"],
-      move: ["pointermove"],
-      release: ["pointercancel"],
-    };
-    const requireCapture = ["pointerdown"];
-    const requireUncapture = ["pointerup"];
+  /**
+   * @param {number?} newWidth
+   * @param {number?} newHeight
+   */
+  resize(newWidth, newHeight) {
+    const mainCanvas = this.renderer.canvas;
+    const mainCtx = this.renderer.context;
 
-    for (const [rkgkEventName, html5EventNames] of Object.entries(toBind)) {
-      for (const eventName of html5EventNames) {
-        canvas.addEventListener(eventName, (e) => {
-          e.preventDefault();
-          if (requireCapture.includes(eventName)) {
-            e.target.setPointerCapture(e.pointerId);
-          } else if (requireUncapture.includes(eventName)) {
-            e.target.releasePointerCapture(e.pointerId);
-          }
+    const oldMain = mainCtx.getImageData(
+      0,
+      0,
+      mainCanvas.width,
+      mainCanvas.height,
+    );
+    if (newWidth) mainCanvas.width = newWidth;
+    if (newHeight) mainCanvas.height = newHeight;
 
-          const coalesced = e.getCoalescedEvents?.();
-          const events = (coalesced && coalesced.length > 0) ? coalesced : [e];
-          for (const event of events) {
-            const pos = getPos(event);
-            this.eventBUS.dispatch({
-              kind: rkgkEventName,
-              pointer: pos,
-              pointerId: e.pointerId ?? null,
-            });
-          }
-        });
-      }
+    mainCtx.putImageData(oldMain, 0, 0);
+
+    for (const layer of this.layers) {
+      const oldLayerCtx = layer.renderer.context;
+      const oldLayer = oldLayerCtx.getImageData(
+        0,
+        0,
+        layer.renderer.canvas.width,
+        layer.renderer.canvas.height,
+      );
+
+      if (newWidth) layer.renderer.canvas.width = newWidth;
+      if (newHeight) layer.renderer.canvas.height = newHeight;
+
+      layer.renderer.context.putImageData(oldLayer, 0, 0);
     }
-
-    // Disables right click
-    canvas.addEventListener("contextmenu", (e) => e.preventDefault());
   }
 
   /**
@@ -335,5 +328,81 @@ export class RkgkEngine {
     while ((event = this.eventBUS.poll())) {
       this.#handleEvent(event);
     }
+  }
+
+  setupDOMEvents() {
+    const { canvas } = this.renderer;
+
+    const getPos = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+        pressure: e.pressure ?? 0.5,
+      };
+    };
+
+    const toBind = {
+      down: ["pointerdown"],
+      up: ["pointerup"],
+      move: ["pointermove"],
+      release: ["pointercancel"],
+    };
+    const requireCapture = ["pointerdown"];
+    const requireUncapture = ["pointerup"];
+
+    for (const [rkgkEventName, html5EventNames] of Object.entries(toBind)) {
+      for (const eventName of html5EventNames) {
+        canvas.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          if (requireCapture.includes(eventName)) {
+            e.target.setPointerCapture(e.pointerId);
+          } else if (requireUncapture.includes(eventName)) {
+            e.target.releasePointerCapture(e.pointerId);
+          }
+
+          const coalesced = e.getCoalescedEvents?.();
+          const events = (coalesced && coalesced.length > 0) ? coalesced : [e];
+          for (const event of events) {
+            const pos = getPos(event);
+            this.eventBUS.dispatch({
+              kind: rkgkEventName,
+              pointer: pos,
+              pointerId: e.pointerId ?? null,
+            });
+          }
+        });
+      }
+    }
+
+    // No default zoom
+    window.addEventListener("wheel", (e) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+    window.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && ["+", "-", "="].includes(e.key)) {
+        e.preventDefault();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "0") {
+        e.preventDefault();
+      }
+    });
+
+    // Chrome issues!
+    // This prevents pinch-to-zoom on touch devices
+    canvas.addEventListener("touchstart", (e) => e.preventDefault(), {
+      passive: false,
+    });
+    canvas.addEventListener("touchmove", (e) => e.preventDefault(), {
+      passive: false,
+    });
+    canvas.addEventListener("touchend", (e) => e.preventDefault(), {
+      passive: false,
+    });
+
+    // No right click
+    canvas.addEventListener("contextmenu", (e) => e.preventDefault());
   }
 }
