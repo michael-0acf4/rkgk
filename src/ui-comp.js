@@ -42,6 +42,7 @@ export class LayerMenu extends VerticalMenu {
       row.dataset.id = layer.id;
 
       const thumb = document.createElement("div");
+      thumb.setAttribute("id", "layer_thumb_" + layer.id);
       thumb.className = "thumb";
 
       const remove = document.createElement("button");

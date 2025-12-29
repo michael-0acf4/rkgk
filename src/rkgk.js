@@ -12,7 +12,7 @@ const MAX_LAYER_HISTORY = 20;
 /**
  * @param {OffscreenCanvas | HTMLCanvasElement} canvas
  */
-async function offscreenCanvasToImage(canvas) {
+export async function canvasToImage(canvas) {
   let url;
   if (canvas instanceof OffscreenCanvas) {
     const blob = await canvas.convertToBlob({ type: "image/png" });
@@ -21,13 +21,10 @@ async function offscreenCanvasToImage(canvas) {
     url = canvas.toDataURL("image/png");
   }
 
-  return await new Promise((resolve) => {
-    const img = new Image();
-    img.src = url;
-    img.onload = () => {
-      resolve({ drawable: img, width: img.width, height: img.height });
-    };
-  });
+  const img = new Image();
+  img.src = url;
+  await img.decode();
+  return { drawable: img, width: img.width, height: img.height };
 }
 
 export function texProceduralSoft(size) {
@@ -49,7 +46,7 @@ export function texProceduralSoft(size) {
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, size, size);
 
-    return await offscreenCanvasToImage(canvas);
+    return await canvasToImage(canvas);
   };
 }
 
@@ -74,7 +71,7 @@ export function texEraser(size) {
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, size, size);
 
-    return await offscreenCanvasToImage(canvas);
+    return await canvasToImage(canvas);
   };
 }
 
@@ -83,30 +80,25 @@ export function texEraser(size) {
  * @param {string} color
  */
 export function texFromImage(url) {
-  return (color) => {
+  return async (color) => {
     const img = new Image();
     img.src = url;
+    await img.decode();
 
-    return new Promise((resolve, reject) => {
-      img.onload = async () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0);
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0);
 
-        // Composite source in preserves non-transparent colors canvas
-        // could be useful later idk
-        ctx.globalCompositeOperation = "source-in";
-        ctx.fillStyle = color;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.globalCompositeOperation = "source-over";
+    // Composite source in preserves non-transparent colors canvas
+    // could be useful later idk
+    ctx.globalCompositeOperation = "source-in";
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.globalCompositeOperation = "source-over";
 
-        resolve(await offscreenCanvasToImage(canvas));
-      };
-
-      img.onerror = reject;
-    });
+    return await canvasToImage(canvas);
   };
 }
 
@@ -182,20 +174,54 @@ export class Brush {
     if (p <= 0) return;
 
     const size = this.size * p;
+    const ar = this.texture.width / Math.max(0.0001, this.texture.height);
+    const angle = Math.random() * Math.PI * 2;
+
+    ctx.save();
 
     ctx.globalAlpha = p;
-    const ar = this.texture.width / Math.max(0.0001, this.texture.height);
+
+    ctx.translate(pointer.x, pointer.y);
+    ctx.rotate(angle);
     ctx.drawImage(
       this.texture.drawable,
       0,
       0,
       this.texture.width,
       this.texture.height,
-      pointer.x - size / 2,
-      pointer.y - size / 2,
+      -(size * ar) / 2,
+      -size / 2,
       size * ar,
       size,
     );
+
+    ctx.restore();
+  }
+
+  async getThumbnail(width, height) {
+    const off = new OffscreenCanvas(width, height);
+    const ctx = off.getContext("2d");
+
+    const steps = 30;
+    const startX = width * 0.1;
+    const endX = width * 0.9;
+    const midY = height * 0.5;
+
+    for (let i = 0; i < steps; i++) {
+      const t = i / (steps - 1);
+
+      const pressure = Math.sin(t * Math.PI);
+      const wiggle = Math.sin(t * Math.PI * 4) * height * 0.08;
+
+      // size/thickness should be encoded implicitly
+      this.dab(ctx, {
+        x: startX + t * (endX - startX),
+        y: midY + wiggle,
+        pressure,
+      });
+    }
+
+    return await canvasToImage(off);
   }
 }
 
@@ -230,6 +256,38 @@ export class Layer {
   getImageDataBuffer() {
     const { context, canvas } = this.renderer;
     return context.getImageData(0, 0, canvas.width, canvas.height);
+  }
+
+  async getThumbnail(width, height) {
+    const { canvas } = this.renderer;
+
+    const off = new OffscreenCanvas(width, height);
+    const ctx = off.getContext("2d");
+
+    // HQ downscale
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+
+    const arSrc = canvas.width / canvas.height;
+    const arDst = width / height;
+
+    let dw, dh, dx, dy;
+    if (arSrc > arDst) {
+      dw = width;
+      dh = width / arSrc;
+      dx = 0;
+      dy = (height - dh) / 2;
+    } else {
+      dh = height;
+      dw = height * arSrc;
+      dx = (width - dw) / 2;
+      dy = 0;
+    }
+
+    ctx.clearRect(0, 0, width, height);
+    ctx.drawImage(canvas, dx, dy, dw, dh);
+
+    return await canvasToImage(off);
   }
 }
 

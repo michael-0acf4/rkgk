@@ -14,7 +14,7 @@ async function main() {
     pressureCurve: (p) => Math.sqrt(p),
   });
 
-  brush.setColor("#b5c7d02c");
+  await brush.setColor("#dc2626fa");
 
   const canvas = document.getElementById("canvas");
   const rkgk = new RkgkEngine(canvas);
@@ -34,10 +34,30 @@ async function main() {
   }
   draw();
 
+  async function updateBrushThumb() {
+    const img = await brush.getThumbnail(120, 40);
+    const div = document.getElementById("thumb-brush");
+    div.innerHTML = "";
+    img.drawable.style = "border: 2px solid black";
+    div.innerHTML = "";
+    div.appendChild(img.drawable);
+  }
 
-  // In this demo, we change the brush color as we change layers
-  // every 2s
-  const colorExamples = ["black", "#b5c7d02c", "#a0d"];
+  async function updateCanvasThumb() {
+    const img = await rkgk.getLayer(rkgk.currentLayerId).getThumbnail(120, 100);
+    const div = document.getElementById("thumb-layer");
+    div.innerHTML = "";
+    img.drawable.style = "border: 2px solid black";
+    div.innerHTML = "";
+    div.appendChild(img.drawable);
+  }
+
+  await updateBrushThumb();
+  await updateCanvasThumb();
+
+  // In this demo, we change the brush color as we change layer
+  // for every 2s
+  const colorExamples = ["black", "#335667b9", "#a0d"];
   let activeLayerIdx = rkgk.layers.findIndex((l) =>
     l.id == rkgk.currentLayerId
   );
@@ -47,7 +67,12 @@ async function main() {
     rkgk.currentLayerId = rkgk.layers[activeLayerIdx].id;
     const color = colorExamples[activeLayerIdx % colorExamples.length];
     await brush.setColor(color);
+    await updateBrushThumb();
   }, 2000);
+
+  setInterval(async () => {
+    await updateCanvasThumb();
+  }, 500);
 }
 
 main().catch((e) => {
