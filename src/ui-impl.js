@@ -59,16 +59,15 @@ async function main() {
       onSelectBrush: (brush) => {
         console.log("engine: select brush", brush);
         rkgk.brush = brush;
-
-        updateBrushThumbnail(rkgk.brush)
-          .catch(console.error);
       },
       onChangeSettings: (s) => {
         console.log("engine: select settings", s);
-        rkgk.brush.size = s.size;
-        rkgk.brush.setColor(s.color).catch(console.error);
 
-        updateBrushThumbnail(rkgk.brush)
+        Promise.all(brushes.map(async (brush) => {
+          brush.size = s.size;
+          await brush.setColor(s.color);
+          return updateBrushThumbnail(brush);
+        }))
           .catch(console.error);
 
         const layer = rkgk.getLayer(rkgk.currentLayerId);
@@ -105,23 +104,28 @@ async function main() {
         layerMenu.setLayers(rkgk.layers);
       },
       onSwap({ fromId, toId }) {
-        const a = rkgk.layers.findIndex((l) => l.id == fromId);
-        const b = rkgk.layers.findIndex((l) => l.id == toId);
-        if (a < 0 || b < 0) {
+        const layers = rkgk.layers;
+
+        const fromIndex = layers.findIndex((l) => l.id == fromId);
+        const toIndex = layers.findIndex((l) => l.id == toId);
+
+        if (fromIndex < 0 || toIndex < 0) {
           console.error(
-            "Could not swap: one of the oeprand is undefined",
-            a,
+            "Could not swap: one of the operands is undefined",
+            fromIndex,
             fromId,
             "vs",
-            b,
+            toIndex,
             toId,
           );
           return;
         }
 
-        [rkgk.layers[a], rkgk.layers[b]] = [rkgk.layers[b], rkgk.layers[a]];
-        layerMenu.setLayers(rkgk.layers);
-        Promise.all(rkgk.layers.map(updateLayerThumbnail))
+        const [moved] = layers.splice(fromIndex, 1);
+        layers.splice(toIndex, 0, moved);
+
+        layerMenu.setLayers(layers);
+        Promise.all(layers.map(updateLayerThumbnail))
           .catch(console.error);
       },
       onActiveChange(id) {
