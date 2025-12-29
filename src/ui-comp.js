@@ -1,3 +1,11 @@
+export function getLayerContainerId({ id }) {
+  return ["layer", "container", id].join("-");
+}
+
+export function getBrushContainerId({ id }) {
+  return ["brush", "container", id].join("-");
+}
+
 export class VerticalMenu {
   constructor(root) {
     this.root = root;
@@ -42,8 +50,8 @@ export class LayerMenu extends VerticalMenu {
       row.dataset.id = layer.id;
 
       const thumb = document.createElement("div");
-      thumb.setAttribute("id", "layer_thumb_" + layer.id);
-      thumb.className = "thumb";
+      thumb.setAttribute("id", getLayerContainerId(layer));
+      thumb.className = "thumb-layer";
 
       const remove = document.createElement("button");
       remove.className = "remove";
@@ -100,7 +108,7 @@ export class BrushMenu extends VerticalMenu {
       brushId: activeBrushId,
       color: "#000000",
       size: 10,
-      pressure: 1,
+      opacity: 1,
     };
 
     const list = document.createElement("div");
@@ -110,7 +118,8 @@ export class BrushMenu extends VerticalMenu {
 
     brushes.forEach((brush) => {
       const el = document.createElement("div");
-      el.className = "thumb";
+      el.className = "thumb-brush";
+      el.setAttribute("id", getBrushContainerId(brush));
       el.dataset.id = brush.id;
       el.onclick = () => {
         this.state.brushId = brush.id;
@@ -125,14 +134,16 @@ export class BrushMenu extends VerticalMenu {
 
     const size = document.createElement("input");
     size.type = "range";
-    size.min = 1;
-    size.max = 100;
+    size.min = 2;
+    size.max = 50;
+    size.value = 10;
 
-    const pressure = document.createElement("input");
-    pressure.type = "range";
-    pressure.min = 0;
-    pressure.max = 1;
-    pressure.step = 0.01;
+    const opacity = document.createElement("input");
+    opacity.type = "range";
+    opacity.min = 0;
+    opacity.max = 1;
+    opacity.value = 1;
+    opacity.step = 0.01;
 
     color.oninput = () => {
       this.state.color = color.value;
@@ -142,15 +153,15 @@ export class BrushMenu extends VerticalMenu {
       this.state.size = +size.value;
       onChangeSettings(this.settings());
     };
-    pressure.oninput = () => {
-      this.state.pressure = +pressure.value;
+    opacity.oninput = () => {
+      this.state.opacity = +opacity.value;
       onChangeSettings(this.settings());
     };
 
     this.add(list);
     this.add(color);
     this.add(size);
-    this.add(pressure);
+    this.add(opacity);
 
     this.updateSelection(list);
   }
@@ -162,8 +173,8 @@ export class BrushMenu extends VerticalMenu {
   }
 
   settings() {
-    const { color, size, pressure } = this.state;
-    return { color, size, pressure };
+    const { color, size, opacity } = this.state;
+    return { color, size, opacity };
   }
 }
 
@@ -223,4 +234,30 @@ export class CanvasViewport {
       this.canvas.releasePointerCapture(e.pointerId);
     });
   }
+}
+
+export async function updateLayerThumbnail(layer) {
+  const elId = getLayerContainerId(layer);
+  const div = document.getElementById(elId);
+  if (!div) {
+    return;
+  }
+
+  const img = await layer.getThumbnail(64, 64);
+  div.innerHTML = "";
+  div.appendChild(img.drawable);
+}
+
+export async function updateBrushThumbnail(brush) {
+  const elId = getBrushContainerId(brush);
+
+  const div = document.getElementById(elId);
+  console.log(brush, elId, div);
+  if (!div) {
+    return;
+  }
+
+  const img = await brush.getThumbnail(100, 40);
+  div.innerHTML = "";
+  div.appendChild(img.drawable);
 }

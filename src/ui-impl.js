@@ -5,7 +5,13 @@ import {
   texFromImage,
   texProceduralSoft,
 } from "./rkgk.js";
-import { BrushMenu, CanvasViewport, LayerMenu } from "./ui-comp.js";
+import {
+  BrushMenu,
+  CanvasViewport,
+  LayerMenu,
+  updateBrushThumbnail,
+  updateLayerThumbnail,
+} from "./ui-comp.js";
 
 const canvas = document.getElementById("canvas");
 const rkgk = new RkgkEngine(canvas);
@@ -53,11 +59,22 @@ async function main() {
       onSelectBrush: (brush) => {
         console.log("engine: select brush", brush);
         rkgk.brush = brush;
+
+        updateBrushThumbnail(rkgk.brush)
+          .catch(console.error);
       },
       onChangeSettings: (s) => {
         console.log("engine: select settings", s);
         rkgk.brush.size = s.size;
         rkgk.brush.setColor(s.color).catch(console.error);
+
+        updateBrushThumbnail(rkgk.brush)
+          .catch(console.error);
+
+        const layer = rkgk.getLayer(rkgk.currentLayerId);
+        if (layer) {
+          layer.opacity = s.opacity;
+        }
       },
     },
   );
@@ -77,8 +94,11 @@ async function main() {
     document.getElementById("layerMenu"),
     {
       onAddLayer() {
-        rkgk.currentLayerId = rkgk.addLayer();
+        rkgk.addLayer();
         layerMenu.setLayers(rkgk.layers);
+
+        Promise.all(rkgk.layers.map(updateLayerThumbnail))
+          .catch(console.error);
       },
       onRemoveLayer(id) {
         rkgk.removeLayer(id);
@@ -100,10 +120,9 @@ async function main() {
         }
 
         [rkgk.layers[a], rkgk.layers[b]] = [rkgk.layers[b], rkgk.layers[a]];
-
-        console.log(rkgk.layers[a], rkgk.layers[b]);
-
         layerMenu.setLayers(rkgk.layers);
+        Promise.all(rkgk.layers.map(updateLayerThumbnail))
+          .catch(console.error);
       },
       onActiveChange(id) {
         console.log("engine: active layer", id);
@@ -121,6 +140,19 @@ async function main() {
     requestAnimationFrame(draw);
   }
   draw();
+
+  // Thumbs
+  Promise.all(rkgk.layers.map(updateLayerThumbnail))
+    .catch(console.error);
+  Promise.all(brushes.map(updateBrushThumbnail))
+    .catch(console.error);
+
+  setInterval(async () => {
+    const layer = rkgk.getLayer(rkgk.currentLayerId);
+    if (layer) {
+      await updateLayerThumbnail(layer);
+    }
+  }, 1000);
 }
 
 main()

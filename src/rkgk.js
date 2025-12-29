@@ -204,19 +204,19 @@ export class Brush {
 
     const steps = 30;
     const startX = width * 0.1;
-    const endX = width * 0.9;
+    const endX = width * 1.0;
     const midY = height * 0.5;
 
     for (let i = 0; i < steps; i++) {
       const t = i / (steps - 1);
 
       const pressure = Math.sin(t * Math.PI);
-      const wiggle = Math.sin(t * Math.PI * 4) * height * 0.08;
+      const dy = 4 * Math.sin(t * Math.PI * 2) * height * 0.08;
 
       // size/thickness should be encoded implicitly
       this.dab(ctx, {
         x: startX + t * (endX - startX),
-        y: midY + wiggle,
+        y: midY + dy,
         pressure,
       });
     }
@@ -345,7 +345,10 @@ export class RkgkEngine {
     for (const layer of this.layers) {
       if (!layer.isVisible) continue;
 
+      const oldAlpha = mainContext.globalAlpha;
+      mainContext.globalAlpha = layer.opacity;
       mainContext.drawImage(layer.renderer.canvas, 0, 0);
+      mainContext.globalAlpha = oldAlpha;
       // SLOW! reserve this for snapshots
       // const buffer = layer.getImageDataBuffer();
       // if (buffer) {
