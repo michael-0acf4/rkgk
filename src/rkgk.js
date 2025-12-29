@@ -1,8 +1,16 @@
 /** @typedef {{canvas: HTMLCanvasElement, context: CanvasRenderingContext2D}} Renderer */
+/** @typedef {"down" | "up" | "move" | "release" } EventKind */
+/** @typedef {{ x: number, y: number, pressure: number }} PointerData */
+/** @typedef {{ kind: EventKind, pointer: PointerData, pointerId: number | null }} RkgkEvent */
+/** @typedef {{ lastPos: PointerData, drawing: boolean, activePointerId: number | null }} EventState */
+
 let GLOBAL_ID = 0;
 const MAX_LAYER_HISTORY = 20;
 
 export class BrushTexture {
+  /**
+   * @param {number} size 
+   */
   static async proceduralSoft(size) {
     this.canvas = new OffscreenCanvas(size, size);
     const ctx = this.canvas.getContext("2d");
@@ -28,12 +36,15 @@ export class BrushTexture {
     };
   }
 
+  /**
+   * @param {string} url 
+   */
   static async fromImage(url) {
     const img = new Image();
     img.src = url;
     return new Promise((resolve, reject) => {
       img.onload = () => {
-        console.log("Loaded texture", url);
+        console.warn("Loaded texture", url);
         resolve({
           drawable: img,
           width: img.width,
@@ -60,6 +71,11 @@ export class Brush {
     this._carry = 0;
   }
 
+  /**
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {PointerData} from
+   * @param {PointerData} to
+   */
   stroke(ctx, from, to) {
     const dx = to.x - from.x;
     const dy = to.y - from.y;
@@ -75,7 +91,11 @@ export class Brush {
       const x = from.x + dx * t;
       const y = from.y + dy * t;
 
-      this.dab(ctx, x, y, to.pressure);
+      this.dab(ctx, {
+        x,
+        y,
+        pressure: to.pressure,
+      });
 
       traveled += step;
     }
@@ -83,8 +103,12 @@ export class Brush {
     this._carry = traveled - dist;
   }
 
-  dab(ctx, x, y, pressure) {
-    const p = this.pressureCurve(pressure);
+  /**
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {PointerData} pointer
+   */
+  dab(ctx, pointer) {
+    const p = this.pressureCurve(pointer.pressure);
     if (p <= 0) return;
 
     const size = this.size * p;
@@ -97,15 +121,19 @@ export class Brush {
       0,
       this.texture.width,
       this.texture.height,
-      x - size / 2,
-      y - size / 2,
-      size,
+      pointer.x - size / 2,
+      pointer.y - size / 2,
       size * ar,
+      size,
     );
   }
 }
 
 export class Layer {
+  /**
+   * @param {number} width 
+   * @param {number} height 
+   */
   constructor(width, height) {
     const canvas = new OffscreenCanvas(width, height);
     this.id = ++GLOBAL_ID;
@@ -135,9 +163,32 @@ export class Layer {
   }
 }
 
+class RkgkEventBUS {
+  constructor() {
+    /** @type RkgkEvent[] */
+    this.eventQueue = [];
+    /** @type {EventState} */
+    this.state = {
+      drawing: false,
+      lastPos: null,
+      activePointerId: null      
+    };
+  }
+
+  /** @param {RkgkEvent} event */
+  dispatch(event) {
+    this.eventQueue.push(event);
+  }
+
+  poll() {
+    return this.eventQueue.shift();
+  }
+}
+
 export class RkgkEngine {
   /** @param canvas {HTMLCanvasElement} */
   constructor(canvas) {
+    this.eventBUS = new RkgkEventBUS();
     /** @type {Renderer} */
     this.renderer = {
       canvas,
@@ -190,53 +241,99 @@ export class RkgkEngine {
 
   setupDOMEvents() {
     const { canvas } = this.renderer;
-    let drawing = false;
-    let lastPos = null;
 
     const getPos = (e) => {
       const rect = canvas.getBoundingClientRect();
       return {
         x: e.clientX - rect.left,
         y: e.clientY - rect.top,
-        pressure: e.pressure,
+        pressure: e.pressure ?? 0.5,
       };
     };
 
-    canvas.addEventListener("pointercancel", (e) => {
-      console.log("cancel");
-      drawing = false;
-    });
+    const toBind = {
+      down: ["pointerdown"],
+      up: ["pointerup"],
+      move: ["pointermove"],
+      release: ["pointercancel"],
+    };
+    const requireCapture = ["pointerdown"];
+    const requireUncapture = ["pointerup"];
 
-    canvas.addEventListener("pointerout", (e) => {
-      console.log("out");
-      drawing = false;
-    });
+    for (const [rkgkEventName, html5EventNames] of Object.entries(toBind)) {
+      for (const eventName of html5EventNames) {
+        canvas.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          if (requireCapture.includes(eventName)) {
+            e.target.setPointerCapture(e.pointerId);
+          } else if (requireUncapture.includes(eventName)) {
+            e.target.releasePointerCapture(e.pointerId);
+          }
 
-    canvas.addEventListener("pointerdown", (e) => {
-      canvas.setPointerCapture(e.pointerId);
-      drawing = true;
-      lastPos = getPos(e);
-      console.log("down", lastPos);
-    });
-
-    canvas.addEventListener("pointerup", (e) => {
-      canvas.releasePointerCapture(e.pointerId);
-      drawing = false;
-      console.log("up", getPos(e));
-      if (this.currentLayerId) this.getLayer(this.currentLayerId)?.snapshot();
-    });
-
-    canvas.addEventListener("pointermove", (e) => {
-      if (!drawing || !this.currentLayerId) return;
-      const layer = this.getLayer(this.currentLayerId);
-      if (!layer || !layer.isVisible) return;
-
-      const events = e.getCoalescedEvents?.() ?? [e];
-      for (const event of events) {
-        const pos = getPos(event);
-        this.brush.stroke(layer.renderer.context, lastPos, pos);
-        lastPos = pos;
+          const coalesced = e.getCoalescedEvents?.();
+          const events = (coalesced && coalesced.length > 0) ? coalesced : [e];
+          for (const event of events) {
+            const pos = getPos(event);
+            this.eventBUS.dispatch({
+              kind: rkgkEventName,
+              pointer: pos,
+              pointerId: e.pointerId ?? null,
+            });
+          }
+        });
       }
-    });
+    }
+
+    // Disables right click
+    canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+
+  /**
+   * @param {RkgkEvent} event
+   */
+  #handleEvent(event) {
+    const { state } = this.eventBUS;
+    switch (event.kind) {
+      case "down": {
+        state.drawing = true;
+        state.lastPos = event.pointer;
+        state.activePointerId = event.pointerId;
+        break;
+      }
+      case "release":
+      case "up": {
+        if (event.pointerId == state.activePointerId) {
+          this.getLayer(this.currentLayerId)?.snapshot();
+          state.drawing = false;
+          state.lastPos = null;
+          state.activePointerId = null;
+        }
+        break;
+      }
+      case "move": {
+        const layer = this.getLayer(this.currentLayerId);
+        if (
+          event.pointerId == state.activePointerId && state.drawing && layer &&
+          state.lastPos
+        ) {
+          this.brush.stroke(
+            layer.renderer.context,
+            state.lastPos,
+            event.pointer,
+          );
+          state.lastPos = event.pointer;
+        }
+      }
+    }
+  }
+
+  /**
+   * @param {EventState} state
+   */
+  pollState() {
+    let event;
+    while ((event = this.eventBUS.poll())) {
+      this.#handleEvent(event);
+    }
   }
 }
