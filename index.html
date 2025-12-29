@@ -1,10 +1,132 @@
-<center>
-  <canvas
-    id="canvas"
-    width="680"
-    height="420"
-    style="border: 2px solid black"
-  ></canvas>
-</center>
-<script type="module" src="src/rkgk.js"></script>
-<script type="module" src="src/index.js"></script>
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Rkgk UI</title>
+    <style>
+      html, body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        font-family: system-ui, sans-serif;
+      }
+
+      /* App root */
+      #app {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        background-color: rgb(217, 227, 236);
+      }
+
+      /* Canvas viewport */
+      #canvasViewport {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+
+      canvas {
+        background-color: white;
+        touch-action: none;
+        transform-origin: center center;
+        box-shadow: 0 0 0 1px #938282;
+      }
+
+      /* Vertical menus */
+      .vmenu {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 96px;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        background: #f3f3f3;
+        z-index: 10;
+      }
+
+      .vmenu.left {
+        left: 0;
+        border-right: 1px solid #ccc;
+      }
+
+      .vmenu.right {
+        right: 0;
+        border-left: 1px solid #ccc;
+      }
+
+      /* Shared UI */
+      .button {
+        padding: 6px;
+        border: 1px solid #bbb;
+        background: #fff;
+        cursor: pointer;
+      }
+
+      .thumb {
+        width: 40px;
+        height: 40px;
+        background: #ddd;
+        border: 1px solid #aaa;
+        cursor: pointer;
+      }
+
+      .thumb.selected {
+        outline: 2px solid #333;
+      }
+
+      .layer-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        overflow-y: auto;      /* enable vertical scroll */
+        flex: 1 1 auto;        /* take remaining vertical space */
+        padding-right: 2px;    /* optional: avoid scrollbar overlap */
+      }
+
+      .layer-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px;
+        background: #fff;
+        border: 1px solid #ccc;
+        cursor: grab;
+      }
+
+      .layer-row:active {
+        cursor: grabbing;
+      }
+
+      .layer-row.active {
+        background: #d0ebff;
+        border-color: #339af0;
+      }
+
+      .remove {
+        margin-left: auto;
+        border: none;
+        background: none;
+        color: #900;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="app">
+      <div id="canvasViewport">
+        <canvas id="canvas" width="1200" height="1200"></canvas>
+      </div>
+      <div id="brushMenu" class="vmenu left"></div>
+      <div id="layerMenu" class="vmenu right"></div>
+    </div>
+
+    <script type="module" src="src/ui-impl.js"></script>
+  </body>
+</html>

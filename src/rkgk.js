@@ -4,6 +4,7 @@
 /** @typedef {{ kind: EventKind, pointer: PointerData, pointerId: number | null }} RkgkEvent */
 /** @typedef {{ lastPos: PointerData, drawing: boolean, activePointerId: number | null }} EventState */
 /** @typedef {{ drawable: HTMLImageElement, width: number, height: number }} BrushTexture */
+/** @typedef {{ offsetX: number, offsetY: number, scale: number }} ViewTransformation */
 
 let GLOBAL_ID = 0;
 const MAX_LAYER_HISTORY = 20;
@@ -52,6 +53,31 @@ export function texProceduralSoft(size) {
   };
 }
 
+export function texEraser(size) {
+  return async (_) => {
+    const canvas = new OffscreenCanvas(size, size);
+    const ctx = canvas.getContext("2d");
+
+    const g = ctx.createRadialGradient(
+      size / 2,
+      size / 2,
+      0,
+      size / 2,
+      size / 2,
+      size / 2,
+    );
+
+    // Opaque center to transparent
+    g.addColorStop(0, "rgba(0, 0, 0, 1)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+
+    return await offscreenCanvasToImage(canvas);
+  };
+}
+
 /**
  * @param {string} url
  * @param {string} color
@@ -88,11 +114,14 @@ export function texFromImage(url) {
 
 export class Brush {
   constructor({
+    name,
     textureLoader,
     spacing,
     size,
     pressureCurve = (p) => p,
   }) {
+    this.id = ++GLOBAL_ID;
+    this.name = name;
     this.textureLoader = textureLoader;
     this.texture = null;
     this.spacing = spacing;
@@ -242,6 +271,8 @@ export class RkgkEngine {
     this.layers = [];
     /** @type {Brush} */
     this.brush = null;
+    /** @type {number} */
+    this.scale = null;
   }
 
   render() {
@@ -354,6 +385,7 @@ export class RkgkEngine {
             layer.renderer.context,
             state.lastPos,
             event.pointer,
+            // TODO: speed for speed curve
           );
           state.lastPos = event.pointer;
         }
@@ -371,14 +403,19 @@ export class RkgkEngine {
     }
   }
 
-  setupDOMEvents() {
+  setupDOMEvents({
+    ignoreUponOneOfModifierKeys = ["alt"],
+  }) {
     const { canvas } = this.renderer;
 
     const getPos = (e) => {
       const rect = canvas.getBoundingClientRect();
+      const offsetX = rect.left;
+      const offsetY = rect.top;
+      const scale = this?.scale ?? 1.0;
       return {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
+        x: (e.clientX - offsetX) / scale,
+        y: (e.clientY - offsetY) / scale,
         pressure: e.pressure ?? 0.5,
       };
     };
@@ -396,6 +433,19 @@ export class RkgkEngine {
       for (const eventName of html5EventNames) {
         canvas.addEventListener(eventName, (e) => {
           e.preventDefault();
+          const pressed = [
+            e.altKey ? "alt" : null,
+            e.shiftKey ? "shift" : null,
+            e.ctrlKey ? "ctrl" : null,
+          ].filter((k) => !!k);
+
+          for (const key of pressed) {
+            if (ignoreUponOneOfModifierKeys.includes(key)) {
+              // console.log("skip");
+              return;
+            }
+          }
+
           if (requireCapture.includes(eventName)) {
             e.target.setPointerCapture(e.pointerId);
           } else if (requireUncapture.includes(eventName)) {
