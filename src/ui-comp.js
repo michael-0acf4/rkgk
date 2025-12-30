@@ -1,3 +1,5 @@
+import { Layer, RkgkEngine } from "./rkgk.js";
+
 export function getLayerContainerId({ id }) {
   return ["layer", "container", id].join("-");
 }
@@ -20,14 +22,78 @@ export class VerticalMenu {
   }
 }
 
+class LayerComponent {
+  /**
+   * @param {Layer} layer
+   */
+  constructor(layer, onRemoveLayer) {
+    this.layer = layer;
+    this.onRemoveLayer = onRemoveLayer;
+    this.root = document.createElement("div");
+    this.root.className = "layer-row";
+    this.root.draggable = true;
+    this.root.dataset.id = layer.id;
+  }
+
+  create() {
+    const thumb = document.createElement("div");
+    thumb.setAttribute("id", getLayerContainerId(this.layer));
+    thumb.className = "thumb-layer";
+
+    const layerControls = document.createElement("div");
+    layerControls.className = "layer-controls";
+
+    const remove = document.createElement("button");
+    remove.className = "layer-flag";
+    remove.textContent = "x";
+    remove.onclick = (e) => {
+      e.stopPropagation();
+      this.onRemoveLayer?.(this.layer.id);
+    };
+
+    const visible = document.createElement("button");
+    visible.className = "layer-flag";
+    visible.textContent = "👁";
+    visible.onclick = (e) => {
+      e.stopPropagation();
+      this.layer.isVisible = !this.layer.isVisible;
+      this.update();
+    };
+    this.visible = visible;
+
+    layerControls.appendChild(remove);
+    layerControls.appendChild(visible);
+
+    this.root.appendChild(thumb);
+    this.root.appendChild(layerControls);
+    this.update();
+
+    return this.root;
+  }
+
+  update() {
+    if (!this.layer.isVisible) {
+      this.visible.className = "layer-flag layer-flag-disable";
+    } else {
+      this.visible.className = "layer-flag";
+    }
+  }
+}
+
 export class LayerMenu extends VerticalMenu {
-  constructor(root, { onAddLayer, onRemoveLayer, onSwap, onActiveChange }) {
+  constructor(
+    root,
+    activeId,
+    { onAddLayer, onRemoveLayer, onSwap, onActiveChange },
+  ) {
     super(root);
     this.onAddLayer = onAddLayer;
     this.onRemoveLayer = onRemoveLayer;
     this.onSwap = onSwap;
     this.onActiveChange = onActiveChange;
-    this.activeId = null;
+    this.state = {
+      activeId,
+    };
   }
 
   setLayers(layers) {
@@ -39,34 +105,34 @@ export class LayerMenu extends VerticalMenu {
     addBtn.onclick = () => this.onAddLayer();
     this.add(addBtn);
 
+    const opacity = document.createElement("input");
+    opacity.type = "range";
+    opacity.className = "slider";
+    opacity.min = 0;
+    opacity.max = 1;
+    opacity.value = 1;
+    opacity.step = 0.01;
+    const updateOpacityUI = () => {
+      for (const layer of layers) {
+        if (layer.id == this.state.activeId) {
+          layer.opacity = +opacity.value;
+        }
+      }
+    };
+    opacity.oninput = updateOpacityUI;
+
     const list = document.createElement("div");
     list.className = "layer-list";
+    this.add(opacity);
     this.add(list);
 
     layers.forEach((layer) => {
-      const row = document.createElement("div");
-      row.className = "layer-row";
-      row.draggable = true;
-      row.dataset.id = layer.id;
-
-      const thumb = document.createElement("div");
-      thumb.setAttribute("id", getLayerContainerId(layer));
-      thumb.className = "thumb-layer";
-
-      const remove = document.createElement("button");
-      remove.className = "remove";
-      remove.textContent = "x";
-      remove.onclick = (e) => {
-        e.stopPropagation();
-        this.onRemoveLayer(layer.id);
-      };
-
-      row.appendChild(thumb);
-      row.appendChild(remove);
+      const row = new LayerComponent(layer, this.onRemoveLayer).create();
       list.appendChild(row);
 
       row.onclick = () => {
-        this.activeId = layer.id;
+        this.state.activeId = layer.id;
+        opacity.value = layer.opacity;
         this.updateActive(list);
         this.onActiveChange?.(layer.id);
       };
@@ -85,12 +151,13 @@ export class LayerMenu extends VerticalMenu {
       });
     });
 
+    updateOpacityUI();
     this.updateActive(list);
   }
 
   updateActive(list) {
     [...list.children].forEach((el) => {
-      el.classList.toggle("active", el.dataset.id === this.activeId);
+      el.classList.toggle("active", el.dataset.id == this.state.activeId);
     });
   }
 }
@@ -134,16 +201,10 @@ export class BrushMenu extends VerticalMenu {
 
     const size = document.createElement("input");
     size.type = "range";
+    size.className = "slider";
     size.min = 2;
     size.max = 50;
     size.value = 10;
-
-    const opacity = document.createElement("input");
-    opacity.type = "range";
-    opacity.min = 0;
-    opacity.max = 1;
-    opacity.value = 1;
-    opacity.step = 0.01;
 
     color.oninput = () => {
       this.state.color = color.value;
@@ -153,22 +214,17 @@ export class BrushMenu extends VerticalMenu {
       this.state.size = +size.value;
       onChangeSettings(this.settings());
     };
-    opacity.oninput = () => {
-      this.state.opacity = +opacity.value;
-      onChangeSettings(this.settings());
-    };
 
     this.add(list);
-    this.add(color);
     this.add(size);
-    this.add(opacity);
+    this.add(color);
 
     this.updateSelection(list);
   }
 
   updateSelection(list) {
     [...list.children].forEach((el) => {
-      el.classList.toggle("selected", el.dataset.id === this.state.brushId);
+      el.classList.toggle("active", el.dataset.id == this.state.brushId);
     });
   }
 
@@ -243,7 +299,7 @@ export async function updateLayerThumbnail(layer) {
     return;
   }
 
-  const img = await layer.getThumbnail(64, 64);
+  const img = await layer.getThumbnail(64, 86);
   div.innerHTML = "";
   div.appendChild(img.drawable);
 }

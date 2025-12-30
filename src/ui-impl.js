@@ -51,18 +51,15 @@ async function main() {
   }
   rkgk.brush = brushes[0];
 
-  new BrushMenu(
+  const _ = new BrushMenu(
     document.getElementById("brushMenu"),
     {
       brushes,
-      activeBrushId: "round",
+      activeBrushId: rkgk.brush.id,
       onSelectBrush: (brush) => {
-        console.log("engine: select brush", brush);
         rkgk.brush = brush;
       },
       onChangeSettings: (s) => {
-        console.log("engine: select settings", s);
-
         Promise.all(brushes.map(async (brush) => {
           brush.size = s.size;
           await brush.setColor(s.color);
@@ -89,8 +86,10 @@ async function main() {
     },
   );
 
+  rkgk.currentLayerId = rkgk.addLayer();
   const layerMenu = new LayerMenu(
     document.getElementById("layerMenu"),
+    rkgk.currentLayerId,
     {
       onAddLayer() {
         rkgk.addLayer();
@@ -135,7 +134,6 @@ async function main() {
     },
   );
 
-  rkgk.currentLayerId = rkgk.addLayer();
   layerMenu.setLayers(rkgk.layers);
 
   function draw() {

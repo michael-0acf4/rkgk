@@ -6,8 +6,18 @@
 /** @typedef {{ drawable: HTMLImageElement, width: number, height: number }} BrushTexture */
 /** @typedef {{ offsetX: number, offsetY: number, scale: number }} ViewTransformation */
 
-let GLOBAL_ID = 0;
 const MAX_LAYER_HISTORY = 20;
+
+function randomId(prefix) {
+  const charset = "abcdefghijklmnopqrstuvwxyz";
+  const char = () => charset[Math.floor(Math.random() * charset.length)];
+  let id = prefix ?? "", count = 64;
+  while (count--) {
+    id += char();
+  }
+
+  return id;
+}
 
 /**
  * @param {OffscreenCanvas | HTMLCanvasElement} canvas
@@ -112,7 +122,7 @@ export class Brush {
     size,
     pressureCurve = (p) => p,
   }) {
-    this.id = ++GLOBAL_ID;
+    this.id = randomId("brush.");
     this.name = name;
     this.textureLoader = textureLoader;
     this.texture = null;
@@ -232,7 +242,7 @@ export class Layer {
    */
   constructor(width, height) {
     const canvas = new OffscreenCanvas(width, height);
-    this.id = ++GLOBAL_ID;
+    this.id = randomId("layer.");
     /** @type {Renderer} */
     this.renderer = {
       canvas,
@@ -440,7 +450,8 @@ export class RkgkEngine {
         const layer = this.getLayer(this.currentLayerId);
         if (
           event.pointerId == state.activePointerId && state.drawing && layer &&
-          state.lastPos
+          state.lastPos &&
+          layer.isVisible
         ) {
           this.brush.stroke(
             layer.renderer.context,
