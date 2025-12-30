@@ -91,73 +91,110 @@ export class LayerMenu extends VerticalMenu {
     this.onRemoveLayer = onRemoveLayer;
     this.onSwap = onSwap;
     this.onActiveChange = onActiveChange;
+
     this.state = {
       activeId,
+      layerRows: new Map(), // map layerId -> row element
     };
   }
 
   setLayers(layers) {
-    this.clear();
-
-    const addBtn = document.createElement("button");
-    addBtn.className = "button";
-    addBtn.textContent = "+ Layer";
-    addBtn.onclick = () => this.onAddLayer();
-    this.add(addBtn);
-
-    const opacity = document.createElement("input");
-    opacity.type = "range";
-    opacity.className = "slider";
-    opacity.min = 0;
-    opacity.max = 1;
-    opacity.value = 1;
-    opacity.step = 0.01;
-    const updateOpacityUI = () => {
-      for (const layer of layers) {
-        if (layer.id == this.state.activeId) {
-          layer.opacity = +opacity.value;
-        }
-      }
-    };
-    opacity.oninput = updateOpacityUI;
-
-    const list = document.createElement("div");
+    const list = this.layerList || document.createElement("div");
     list.className = "layer-list";
-    this.add(opacity);
-    this.add(list);
+    this.layerList = list;
+
+    if (!this.addBtn) {
+      const addBtn = document.createElement("button");
+      addBtn.className = "button";
+      addBtn.textContent = "+ Layer";
+      addBtn.onclick = () => this.onAddLayer();
+      this.addBtn = addBtn;
+      this.add(addBtn);
+    }
+
+    if (!this.opacityInput) {
+      const opacity = document.createElement("input");
+      opacity.type = "range";
+      opacity.className = "slider";
+      opacity.min = 0;
+      opacity.max = 1;
+      opacity.step = 0.01;
+      this.opacityInput = opacity;
+      this.add(opacity);
+
+      opacity.oninput = () => {
+        const layer = layers.find((l) => l.id === this.state.activeId);
+        if (layer) layer.opacity = +opacity.value;
+      };
+    }
+
+    const activeLayer = layers.find((l) => l.id === this.state.activeId);
+    if (activeLayer) {
+      this.opacityInput.value = activeLayer.opacity ?? 1;
+    }
+
+    if (!list.parentNode) this.add(list);
 
     layers.forEach((layer) => {
-      const row = new LayerComponent(layer, this.onRemoveLayer).create();
-      list.appendChild(row);
+      let row = this.state.layerRows.get(layer.id);
+      if (!row) {
+        row = new LayerComponent(layer, this.onRemoveLayer).create();
+        row.dataset.id = layer.id;
+        list.appendChild(row);
+        this.state.layerRows.set(layer.id, row);
 
-      row.onclick = () => {
-        this.state.activeId = layer.id;
-        opacity.value = layer.opacity;
-        this.updateActive(list);
-        this.onActiveChange?.(layer.id);
-      };
+        row.addEventListener("dragstart", (e) => {
+          e.dataTransfer.setData("text/plain", layer.id);
+        });
+        row.addEventListener("dragover", (e) => e.preventDefault());
+        row.addEventListener("drop", (e) => {
+          e.preventDefault();
+          const fromId = e.dataTransfer.getData("text/plain");
+          const toId = layer.id;
+          if (fromId && fromId !== toId) {
+            const fromRow = this.state.layerRows.get(fromId);
+            const toRow = this.state.layerRows.get(toId);
+            if (!fromRow || !toRow) return;
 
-      row.addEventListener("dragstart", (e) => {
-        e.dataTransfer.setData("text/plain", layer.id);
-      });
-      row.addEventListener("dragover", (e) => e.preventDefault());
-      row.addEventListener("drop", (e) => {
-        e.preventDefault();
-        const fromId = e.dataTransfer.getData("text/plain");
-        const toId = layer.id;
-        if (fromId && fromId !== toId) {
-          this.onSwap({ fromId, toId });
-        }
-      });
+            const list = toRow.parentNode;
+
+            //! swap nodes: visually
+            const fromNext = fromRow.nextSibling;
+            const toNext = toRow.nextSibling;
+
+            if (fromNext === toRow) {
+              //! adjacent nodes: from above toRow
+              list.insertBefore(toRow, fromRow);
+            } else if (toNext === fromRow) {
+              //! adjacent nodes: to above fromRow
+              list.insertBefore(fromRow, toRow);
+            } else {
+              //! non-adjacent: swap by inserting
+              list.insertBefore(fromRow, toNext);
+              list.insertBefore(toRow, fromNext);
+            }
+
+            this.onSwap({ fromId, toId });
+          }
+        });
+
+        row.onclick = () => {
+          this.state.activeId = layer.id;
+          this.opacityInput.value = layer.opacity ?? 1;
+          this.updateActive(list);
+          this.onActiveChange?.(layer.id);
+        };
+      } else {
+        // row already exists
+      }
     });
 
-    updateOpacityUI();
     this.updateActive(list);
   }
 
   updateActive(list) {
     [...list.children].forEach((el) => {
-      el.classList.toggle("active", el.dataset.id == this.state.activeId);
+      el.classList.toggle("active", el.dataset.id === this.state.activeId);
     });
   }
 }
@@ -183,6 +220,12 @@ export class BrushMenu extends VerticalMenu {
     list.style.flexDirection = "column";
     list.style.gap = "6px";
 
+    const brushLabel = document.createElement("span");
+    const updateActiveBrushLabel = (activeId) => {
+      brushLabel.textContent = brushes.find((b) => b.id === activeId).name;
+    };
+    updateActiveBrushLabel(activeBrushId);
+
     brushes.forEach((brush) => {
       const el = document.createElement("div");
       el.className = "thumb-brush";
@@ -190,6 +233,7 @@ export class BrushMenu extends VerticalMenu {
       el.dataset.id = brush.id;
       el.onclick = () => {
         this.state.brushId = brush.id;
+        updateActiveBrushLabel(brush.id);
         this.updateSelection(list);
         onSelectBrush(brush);
       };
@@ -215,6 +259,7 @@ export class BrushMenu extends VerticalMenu {
       onChangeSettings(this.settings());
     };
 
+    this.add(brushLabel);
     this.add(list);
     this.add(size);
     this.add(color);
@@ -224,7 +269,7 @@ export class BrushMenu extends VerticalMenu {
 
   updateSelection(list) {
     [...list.children].forEach((el) => {
-      el.classList.toggle("active", el.dataset.id == this.state.brushId);
+      el.classList.toggle("active", el.dataset.id === this.state.brushId);
     });
   }
 
@@ -308,7 +353,6 @@ export async function updateBrushThumbnail(brush) {
   const elId = getBrushContainerId(brush);
 
   const div = document.getElementById(elId);
-  console.log(brush, elId, div);
   if (!div) {
     return;
   }

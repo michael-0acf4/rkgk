@@ -1,10 +1,4 @@
-import {
-  Brush,
-  RkgkEngine,
-  texEraser,
-  texFromImage,
-  texProceduralSoft,
-} from "./rkgk.js";
+import { RkgkEngine } from "./rkgk.js";
 import {
   BrushMenu,
   CanvasViewport,
@@ -12,6 +6,7 @@ import {
   updateBrushThumbnail,
   updateLayerThumbnail,
 } from "./ui-comp.js";
+import { stdBrushes as brushes } from "./fx-brushes.js";
 
 const canvas = document.getElementById("canvas");
 const rkgk = new RkgkEngine(canvas);
@@ -20,30 +15,6 @@ rkgk.setupDOMEvents({
     "alt", // Reserved for tje UI
   ],
 }); // !
-
-const brushes = [
-  new Brush({
-    name: "Sketch",
-    textureLoader: texFromImage("textures/pencil.png"),
-    spacing: 0.25,
-    size: 10,
-    pressureCurve: (p) => p,
-  }),
-  new Brush({
-    name: "Soft Brush",
-    textureLoader: texProceduralSoft(10),
-    spacing: 0.25,
-    size: 10,
-    pressureCurve: (p) => Math.sqrt(p),
-  }),
-  new Brush({
-    name: "Eraser",
-    textureLoader: texEraser(10),
-    spacing: 0.25,
-    size: 10,
-    pressureCurve: (p) => Math.sqrt(p),
-  }),
-];
 
 async function main() {
   for (const brush of brushes) {
@@ -80,13 +51,13 @@ async function main() {
     {
       onZoom: (z) => {
         rkgk.scale = z.scale;
-        console.log("engine: zoom", z);
       },
       onPan: (p) => console.log("engine: pan", p),
     },
   );
 
   rkgk.currentLayerId = rkgk.addLayer();
+  rkgk.layers[0].opacity = 0.6;
   const layerMenu = new LayerMenu(
     document.getElementById("layerMenu"),
     rkgk.currentLayerId,

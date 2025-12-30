@@ -1,6 +1,6 @@
 /** @typedef {{canvas: HTMLCanvasElement, context: CanvasRenderingContext2D}} Renderer */
 /** @typedef {"down" | "up" | "move" | "release" } EventKind */
-/** @typedef {{ x: number, y: number, pressure: number }} PointerData */
+/** @typedef {{ x: number, y: number, pressure: number, tilt: number, orientation: number }} PointerData */
 /** @typedef {{ kind: EventKind, pointer: PointerData, pointerId: number | null }} RkgkEvent */
 /** @typedef {{ lastPos: PointerData, drawing: boolean, activePointerId: number | null }} EventState */
 /** @typedef {{ drawable: HTMLImageElement, width: number, height: number }} BrushTexture */
@@ -8,15 +8,47 @@
 
 const MAX_LAYER_HISTORY = 20;
 
+/**
+ * @param {string} prefix
+ */
 function randomId(prefix) {
-  const charset = "abcdefghijklmnopqrstuvwxyz";
-  const char = () => charset[Math.floor(Math.random() * charset.length)];
   let id = prefix ?? "", count = 64;
   while (count--) {
-    id += char();
+    id += String.fromCharCode(65 + Math.floor(Math.random() * 26));
   }
 
   return id;
+}
+
+/**
+ * @param {RkgkEngine} rkgk
+ * @param {PointerEvent | MouseEvent} e
+ * @returns
+ */
+function getPointerData(rkgk, e) {
+  const rect = rkgk.renderer.canvas.getBoundingClientRect();
+  const offsetX = rect.left;
+  const offsetY = rect.top;
+  const scale = rkgk.scale ?? 1.0;
+
+  let tilt = 0, orientation = 0;
+  if (e.altitudeAngle != null && e.azimuthAngle != null) {
+    tilt = Math.max(0, Math.min(1, 1 - e.altitudeAngle / (Math.PI / 2)));
+    orientation = e.azimuthAngle;
+  } else if (e.tiltX != null && e.tiltY != null) {
+    const tx = e.tiltX * Math.PI / 180;
+    const ty = e.tiltY * Math.PI / 180;
+    tilt = Math.min(1, Math.hypot(tx, ty) / (Math.PI / 2));
+    orientation = Math.atan2(tx, ty);
+  }
+
+  return {
+    x: (e.clientX - offsetX) / scale,
+    y: (e.clientY - offsetY) / scale,
+    pressure: e.pressure ?? 0.5,
+    tilt,
+    orientation,
+  };
 }
 
 /**
@@ -60,26 +92,44 @@ export function texProceduralSoft(size) {
   };
 }
 
+/**
+ * @param {number} size
+ */
+export function texProceduralMarker(size) {
+  return async (color) => {
+    const canvas = new OffscreenCanvas(size, size);
+    const ctx = canvas.getContext("2d");
+
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, size, size);
+    ctx.clearRect(0, 0, size, size);
+
+    const imgData = ctx.getImageData(0, 0, size, size);
+    for (let i = 0; i < imgData.data.length; i += 4) {
+      imgData.data[i + 3] = Math.random() * 255;
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    return await canvasToImage(canvas);
+  };
+}
+
+/**
+ * @param {number} size
+ */
 export function texEraser(size) {
   return async (_) => {
     const canvas = new OffscreenCanvas(size, size);
     const ctx = canvas.getContext("2d");
 
-    const g = ctx.createRadialGradient(
-      size / 2,
-      size / 2,
-      0,
-      size / 2,
-      size / 2,
-      size / 2,
-    );
-
-    // Opaque center to transparent
-    g.addColorStop(0, "rgba(0, 0, 0, 1)");
-    g.addColorStop(1, "rgba(0,0,0,0)");
-
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, size, size);
+    const imgData = ctx.createImageData(size, size);
+    for (let i = 0; i < imgData.data.length; i += 4) {
+      imgData.data[i + 0] = 255;
+      imgData.data[i + 1] = 255;
+      imgData.data[i + 2] = 255;
+      imgData.data[i + 3] = Math.random() * 255;
+    }
+    ctx.putImageData(imgData, 0, 0);
 
     return await canvasToImage(canvas);
   };
@@ -118,6 +168,8 @@ export class Brush {
   constructor({
     name,
     textureLoader,
+    angleTransform,
+    squashTransform,
     spacing,
     size,
     pressureCurve = (p) => p,
@@ -125,6 +177,8 @@ export class Brush {
     this.id = randomId("brush.");
     this.name = name;
     this.textureLoader = textureLoader;
+    this.angleTransform = angleTransform;
+    this.squashTransform = squashTransform;
     this.texture = null;
     this.spacing = spacing;
     this.size = size;
@@ -167,6 +221,8 @@ export class Brush {
         x,
         y,
         pressure: to.pressure,
+        tilt: to.tilt,
+        orientation: to.orientation,
       });
 
       traveled += step;
@@ -185,7 +241,10 @@ export class Brush {
 
     const size = this.size * p;
     const ar = this.texture.width / Math.max(0.0001, this.texture.height);
-    const angle = Math.random() * Math.PI * 2;
+    const angle = this.angleTransform?.(pointer.orientation) ??
+      Math.random() * Math.PI * 2;
+    const squishedAr = this.squashTransform?.(ar, pointer.tilt) ??
+      (1 + 2 * pointer.tilt) * ar;
 
     ctx.save();
 
@@ -199,9 +258,9 @@ export class Brush {
       0,
       this.texture.width,
       this.texture.height,
-      -(size * ar) / 2,
+      -(size * squishedAr) / 2,
       -size / 2,
-      size * ar,
+      size * squishedAr,
       size,
     );
 
@@ -228,6 +287,8 @@ export class Brush {
         x: startX + t * (endX - startX),
         y: midY + dy,
         pressure,
+        tilt: 0,
+        orientation: 0,
       });
     }
 
@@ -479,19 +540,6 @@ export class RkgkEngine {
     ignoreUponOneOfModifierKeys = ["alt"],
   }) {
     const { canvas } = this.renderer;
-
-    const getPos = (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const offsetX = rect.left;
-      const offsetY = rect.top;
-      const scale = this?.scale ?? 1.0;
-      return {
-        x: (e.clientX - offsetX) / scale,
-        y: (e.clientY - offsetY) / scale,
-        pressure: e.pressure ?? 0.5,
-      };
-    };
-
     const toBind = {
       down: ["pointerdown"],
       up: ["pointerup"],
@@ -527,10 +575,9 @@ export class RkgkEngine {
           const coalesced = e.getCoalescedEvents?.();
           const events = (coalesced && coalesced.length > 0) ? coalesced : [e];
           for (const event of events) {
-            const pos = getPos(event);
             this.eventBUS.dispatch({
               kind: rkgkEventName,
-              pointer: pos,
+              pointer: getPointerData(this, event),
               pointerId: e.pointerId ?? null,
             });
           }

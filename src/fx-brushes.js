@@ -1,0 +1,55 @@
+import {
+  Brush,
+  texEraser,
+  texFromImage,
+  texProceduralMarker,
+  texProceduralSoft,
+} from "./rkgk.js";
+
+export const stdBrushes = [
+  new Brush({
+    name: "Sketch",
+    textureLoader: texFromImage("textures/pencil.png"),
+    angleTransform: (_t) => Math.random() * 2 * Math.PI,
+    squashTransform: (ar, _tilt) => ar,
+    spacing: 0.25,
+    size: 10,
+    pressureCurve: (p) => p,
+  }),
+  new Brush({
+    name: "Pencil",
+    textureLoader: texFromImage("textures/pencil.png"),
+    angleTransform: (t) => t,
+    squashTransform: (ar, tilt) => (1 + 2 * tilt) * ar,
+    spacing: 0.25,
+    size: 10,
+    pressureCurve: (p) => p,
+  }),
+  new Brush({
+    name: "Marker",
+    textureLoader: texProceduralMarker(10),
+    angleTransform: (_t) => Math.random() * 2 * Math.PI,
+    squashTransform: (ar, tilt) => (1 + 2 * tilt) * ar,
+    spacing: 0.25,
+    size: 10,
+    pressureCurve: (p) => p,
+  }),
+  new Brush({
+    name: "Soft Brush",
+    textureLoader: texProceduralSoft(10),
+    angleTransform: (_t) => Math.random() * 2 * Math.PI,
+    squashTransform: (ar, _tilt) => ar,
+    spacing: 0.1,
+    size: 10,
+    pressureCurve: (p) => Math.sqrt(p),
+  }),
+  new Brush({
+    name: "Eraser",
+    textureLoader: texEraser(10),
+    angleTransform: (_t) => Math.random() * 2 * Math.PI,
+    squashTransform: (ar, _tilt) => ar,
+    spacing: 0.25,
+    size: 10,
+    pressureCurve: (p) => Math.sqrt(p),
+  }),
+];

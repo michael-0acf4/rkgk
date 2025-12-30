@@ -7,8 +7,20 @@ async function main() {
   const brush = new Brush({
     name: "Pencil",
     textureLoader: texPencil,
+
+    // Angle at which the texture is drawn
+    angleTransform: (_t) => Math.random() * 2 * Math.PI,
+
+    // After applying the texture orientation, we can do a rich deformation with tablet pen tilt data
+    // deformation vector := v ~ new - old in drawing space
+    squashTransform: (ar, _tilt) => ar,
+
+    // Texture spacing in between two points
     spacing: 0.25,
+
+    // Texture will be normalized in drawing space but higher size mean higher texture fidelity
     size: 10,
+
     // TODO: quantize
     // https://docs.thesevenpens.com/drawtab/core-features/pen-pressure/pen-pressure-curve/implementing-pressure-curves
     pressureCurve: (p) => Math.sqrt(p),
