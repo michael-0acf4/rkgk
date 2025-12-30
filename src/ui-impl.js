@@ -1,4 +1,5 @@
 import { RkgkEngine } from "./rkgk.js";
+import { stdBrushes } from "./rkgk-brushes.js";
 import {
   BrushMenu,
   CanvasViewport,
@@ -6,7 +7,6 @@ import {
   updateBrushThumbnail,
   updateLayerThumbnail,
 } from "./ui-comp.js";
-import { stdBrushes as brushes } from "./fx-brushes.js";
 
 const canvas = document.getElementById("canvas");
 const rkgk = new RkgkEngine(canvas);
@@ -15,6 +15,7 @@ rkgk.setupDOMEvents({
     "alt", // Reserved for tje UI
   ],
 }); // !
+const brushes = stdBrushes();
 
 async function main() {
   for (const brush of brushes) {
@@ -57,7 +58,6 @@ async function main() {
   );
 
   rkgk.currentLayerId = rkgk.addLayer();
-  rkgk.layers[0].opacity = 0.6;
   const layerMenu = new LayerMenu(
     document.getElementById("layerMenu"),
     rkgk.currentLayerId,

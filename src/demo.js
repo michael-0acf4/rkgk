@@ -1,12 +1,11 @@
-import { Brush, RkgkEngine, texFromImage, texProceduralSoft } from "./rkgk.js";
+import { Brush, RkgkEngine } from "./rkgk.js";
+import { texProceduralMarker } from "./rkgk-brushes.js";
 
 async function main() {
-  const texSoft = texProceduralSoft(10);
-  const texPencil = texFromImage("textures/pencil.png");
-
+  const texMarker = texProceduralMarker(10);
   const brush = new Brush({
-    name: "Pencil",
-    textureLoader: texPencil,
+    name: "Awesome Marker",
+    textureLoader: texMarker,
 
     // Angle at which the texture is drawn
     angleTransform: (_t) => Math.random() * 2 * Math.PI,
