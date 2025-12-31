@@ -5,7 +5,7 @@ import { Brush, canvasToImage } from "./rkgk.js";
  * @param {string} color
  */
 export function texFromImage(url) {
-  return async (color) => {
+  return async (color, hardness) => {
     const img = new Image();
     img.src = url;
     await img.decode();
@@ -14,6 +14,7 @@ export function texFromImage(url) {
     canvas.width = img.width;
     canvas.height = img.height;
     const ctx = canvas.getContext("2d");
+    ctx.globalAlpha = hardness ?? ctx.globalAlpha;
     ctx.drawImage(img, 0, 0);
 
     // Composite source in preserves non-transparent colors canvas
@@ -31,9 +32,10 @@ export function texFromImage(url) {
  * @param {number} size
  */
 export function texProceduralSoft(size) {
-  return async (color) => {
+  return async (color, hardness) => {
     const canvas = new OffscreenCanvas(size, size);
     const ctx = canvas.getContext("2d");
+    ctx.globalAlpha = hardness ?? ctx.globalAlpha;
 
     const g = ctx.createRadialGradient(
       size / 2,
@@ -57,11 +59,12 @@ export function texProceduralSoft(size) {
  * @param {number} size
  */
 export function texProceduralMarker(size) {
-  return async (color) => {
+  return async (color, hardness) => {
     const canvas = new OffscreenCanvas(size, size);
     const ctx = canvas.getContext("2d");
 
     ctx.fillStyle = color;
+    ctx.globalAlpha = hardness ?? ctx.globalAlpha;
     ctx.fillRect(0, 0, size, size);
 
     const imgData = ctx.getImageData(0, 0, size, size);
@@ -79,7 +82,7 @@ export function texProceduralMarker(size) {
  * @param {number} size
  */
 export function texEraser(size) {
-  return async (_) => {
+  return async (_color, _hardness) => {
     const canvas = new OffscreenCanvas(size, size);
     const ctx = canvas.getContext("2d");
 
@@ -100,47 +103,47 @@ export function stdBrushes() {
   return [
     new Brush({
       name: "Sketch",
+      spacing: 0.25,
+      size: 10,
       textureLoader: texFromImage("textures/pencil.png"),
       angleTransform: (_t) => Math.random() * 2 * Math.PI,
       squashTransform: (ar, _tilt) => ar,
-      spacing: 0.25,
-      size: 10,
       pressureCurve: (p) => p,
     }),
     new Brush({
       name: "Pencil",
-      textureLoader: texFromImage("textures/pencil.png"),
-      angleTransform: (t) => t,
-      squashTransform: (ar, tilt) => (1 + 2 * tilt) * ar,
       spacing: 0.25,
       size: 10,
+      textureLoader: texFromImage("textures/pencil.png"),
+      angleTransform: (t) => t,
+      squashTransform: (ar, tilt) => (1 + tilt) * ar,
       pressureCurve: (p) => p,
     }),
     new Brush({
       name: "Marker",
+      spacing: 0.25,
+      size: 10,
       textureLoader: texProceduralMarker(10),
       angleTransform: (_t) => Math.random() * 2 * Math.PI,
       squashTransform: (ar, tilt) => (1 + 2 * tilt) * ar,
-      spacing: 0.25,
-      size: 10,
       pressureCurve: (p) => p,
     }),
     new Brush({
       name: "Soft Brush",
+      spacing: 0.1,
+      size: 10,
       textureLoader: texProceduralSoft(10),
       angleTransform: (_t) => Math.random() * 2 * Math.PI,
       squashTransform: (ar, _tilt) => ar,
-      spacing: 0.1,
-      size: 10,
       pressureCurve: (p) => Math.sqrt(p),
     }),
     new Brush({
       name: "Eraser",
+      spacing: 0.25,
+      size: 10,
       textureLoader: texEraser(10),
       angleTransform: (_t) => Math.random() * 2 * Math.PI,
       squashTransform: (ar, _tilt) => ar,
-      spacing: 0.25,
-      size: 10,
       pressureCurve: (p) => Math.sqrt(p),
     }),
   ];

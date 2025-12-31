@@ -34,7 +34,7 @@ async function main() {
       onChangeSettings: (s) => {
         Promise.all(brushes.map(async (brush) => {
           brush.size = s.size;
-          await brush.setColor(s.color);
+          await brush.setColor(s.color, s.hardness);
           return updateBrushThumbnail(brush);
         }))
           .catch(console.error);
@@ -53,7 +53,7 @@ async function main() {
       onZoom: (z) => {
         rkgk.scale = z.scale;
       },
-      onPan: (p) => console.log("engine: pan", p),
+      onPan: (p) => {},
     },
   );
 
@@ -73,7 +73,7 @@ async function main() {
         rkgk.removeLayer(id);
         layerMenu.setLayers(rkgk.layers);
       },
-      onSwap({ fromId, toId }) {
+      onInsert({ fromId, toId }) {
         const layers = rkgk.layers;
 
         const fromIndex = layers.findIndex((l) => l.id == fromId);
@@ -81,7 +81,7 @@ async function main() {
 
         if (fromIndex < 0 || toIndex < 0) {
           console.error(
-            "Could not swap: one of the operands is undefined",
+            "Could not insert swap: one of the operands is undefined",
             fromIndex,
             fromId,
             "vs",

@@ -56,6 +56,7 @@ function getPointerData(rkgk, e) {
  */
 export async function canvasToImage(canvas) {
   let url;
+
   if (canvas instanceof OffscreenCanvas) {
     const blob = await canvas.convertToBlob({ type: "image/png" });
     url = URL.createObjectURL(blob);
@@ -74,21 +75,21 @@ export async function canvasToImage(canvas) {
 export class Brush {
   constructor({
     name,
+    spacing,
+    size,
     textureLoader,
     angleTransform,
     squashTransform,
-    spacing,
-    size,
     pressureCurve = (p) => p,
   }) {
     this.id = randomId("brush.");
     this.name = name;
-    this.textureLoader = textureLoader;
-    this.angleTransform = angleTransform;
-    this.squashTransform = squashTransform;
     this.texture = null;
     this.spacing = spacing;
     this.size = size;
+    this.textureLoader = textureLoader;
+    this.angleTransform = angleTransform;
+    this.squashTransform = squashTransform;
     this.pressureCurve = pressureCurve;
 
     this._carry = 0;
@@ -97,11 +98,13 @@ export class Brush {
   /**
    * Recompiles original texture with a color filter
    * @param {string} color
+   * @param {number} hardness
    */
-  async setColor(color) {
+  async setColor(color, hardness) {
     this.color = color;
+    this.hardness = hardness;
     /** @type {BrushTexture} */
-    this.texture = await this.textureLoader(this.color);
+    this.texture = await this.textureLoader(this.color, this.hardness);
   }
 
   /**

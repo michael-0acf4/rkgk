@@ -84,12 +84,12 @@ export class LayerMenu extends VerticalMenu {
   constructor(
     root,
     activeId,
-    { onAddLayer, onRemoveLayer, onSwap, onActiveChange },
+    { onAddLayer, onRemoveLayer, onInsert, onActiveChange },
   ) {
     super(root);
     this.onAddLayer = onAddLayer;
     this.onRemoveLayer = onRemoveLayer;
-    this.onSwap = onSwap;
+    this.onInsert = onInsert;
     this.onActiveChange = onActiveChange;
 
     this.state = {
@@ -102,6 +102,7 @@ export class LayerMenu extends VerticalMenu {
     const list = this.layerList || document.createElement("div");
     list.className = "layer-list";
     this.layerList = list;
+    this.layers = layers;
 
     if (!this.addBtn) {
       const addBtn = document.createElement("button");
@@ -123,7 +124,7 @@ export class LayerMenu extends VerticalMenu {
       this.add(opacity);
 
       opacity.oninput = () => {
-        const layer = layers.find((l) => l.id === this.state.activeId);
+        const layer = this.layers.find((l) => l.id === this.state.activeId);
         if (layer) layer.opacity = +opacity.value;
       };
     }
@@ -159,22 +160,18 @@ export class LayerMenu extends VerticalMenu {
             const list = toRow.parentNode;
 
             //! swap nodes: visually
-            const fromNext = fromRow.nextSibling;
-            const toNext = toRow.nextSibling;
+            const children = [...list.children];
+            const fromIndex = children.indexOf(fromRow);
+            const toIndex = children.indexOf(toRow);
+            list.removeChild(fromRow);
 
-            if (fromNext === toRow) {
-              //! adjacent nodes: from above toRow
-              list.insertBefore(toRow, fromRow);
-            } else if (toNext === fromRow) {
-              //! adjacent nodes: to above fromRow
-              list.insertBefore(fromRow, toRow);
+            if (fromIndex < toIndex) {
+              list.insertBefore(fromRow, toRow.nextSibling);
             } else {
-              //! non-adjacent: swap by inserting
-              list.insertBefore(fromRow, toNext);
-              list.insertBefore(toRow, fromNext);
+              list.insertBefore(fromRow, toRow);
             }
 
-            this.onSwap({ fromId, toId });
+            this.onInsert({ fromId, toId });
           }
         });
 
@@ -189,6 +186,13 @@ export class LayerMenu extends VerticalMenu {
       }
     });
 
+    const alive = new Set(layers.map((l) => l.id));
+    for (const [id, row] of this.state.layerRows) {
+      if (!alive.has(id)) {
+        row.remove();
+        this.state.layerRows.delete(id);
+      }
+    }
     this.updateActive(list);
   }
 
@@ -213,6 +217,7 @@ export class BrushMenu extends VerticalMenu {
       color: "#000000",
       size: 10,
       opacity: 1,
+      hardness: 1,
     };
 
     const list = document.createElement("div");
@@ -240,28 +245,40 @@ export class BrushMenu extends VerticalMenu {
       list.appendChild(el);
     });
 
-    const color = document.createElement("input");
-    color.type = "color";
-
     const size = document.createElement("input");
     size.type = "range";
     size.className = "slider";
     size.min = 2;
     size.max = 50;
     size.value = 10;
-
-    color.oninput = () => {
-      this.state.color = color.value;
-      onChangeSettings(this.settings());
-    };
     size.oninput = () => {
       this.state.size = +size.value;
+      onChangeSettings(this.settings());
+    };
+
+    const hardness = document.createElement("input");
+    hardness.type = "range";
+    hardness.className = "slider";
+    hardness.min = 0.2;
+    hardness.max = 1;
+    hardness.value = 1.0;
+    hardness.step = 0.1;
+    hardness.oninput = () => {
+      this.state.hardness = +hardness.value;
+      onChangeSettings(this.settings());
+    };
+
+    const color = document.createElement("input");
+    color.type = "color";
+    color.oninput = () => {
+      this.state.color = color.value;
       onChangeSettings(this.settings());
     };
 
     this.add(brushLabel);
     this.add(list);
     this.add(size);
+    this.add(hardness);
     this.add(color);
 
     this.updateSelection(list);
@@ -274,8 +291,7 @@ export class BrushMenu extends VerticalMenu {
   }
 
   settings() {
-    const { color, size, opacity } = this.state;
-    return { color, size, opacity };
+    return JSON.parse(JSON.stringify(this.state));
   }
 }
 
