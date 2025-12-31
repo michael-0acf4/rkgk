@@ -202,22 +202,40 @@ export class LayerMenu extends VerticalMenu {
     });
   }
 }
-
 export class BrushMenu extends VerticalMenu {
-  constructor(root, {
-    brushes,
-    activeBrushId,
-    onSelectBrush,
-    onChangeSettings,
-  }) {
+  constructor(
+    root,
+    {
+      brushes,
+      activeBrushId,
+      onSelectBrush,
+      onChangeSettings,
+    },
+  ) {
     super(root);
 
+    this.onChangeSettings = onChangeSettings;
+    this.onSelectBrush = onSelectBrush;
+
     this.state = {
-      brushId: activeBrushId,
-      color: "#000000",
-      size: 10,
-      opacity: 1,
-      hardness: 1,
+      activeBrushId,
+      brushSettings: new Map(
+        brushes.map((b) => [
+          b.id,
+          {
+            color: b.color ?? "#000",
+            size: b.size,
+            opacity: 1,
+            hardness: 1,
+          },
+        ]),
+      ),
+    };
+
+    const brushLabel = document.createElement("span");
+    const updateActiveBrushLabel = () => {
+      const brush = brushes.find((b) => b.id === this.state.activeBrushId);
+      brushLabel.textContent = brush?.name ?? "";
     };
 
     const list = document.createElement("div");
@@ -225,23 +243,20 @@ export class BrushMenu extends VerticalMenu {
     list.style.flexDirection = "column";
     list.style.gap = "6px";
 
-    const brushLabel = document.createElement("span");
-    const updateActiveBrushLabel = (activeId) => {
-      brushLabel.textContent = brushes.find((b) => b.id === activeId).name;
-    };
-    updateActiveBrushLabel(activeBrushId);
-
     brushes.forEach((brush) => {
       const el = document.createElement("div");
       el.className = "thumb-brush";
-      el.setAttribute("id", getBrushContainerId(brush));
       el.dataset.id = brush.id;
+      el.setAttribute("id", getBrushContainerId(brush));
+
       el.onclick = () => {
-        this.state.brushId = brush.id;
-        updateActiveBrushLabel(brush.id);
+        this.state.activeBrushId = brush.id;
+        this.syncUI();
         this.updateSelection(list);
-        onSelectBrush(brush);
+        updateActiveBrushLabel();
+        this.onSelectBrush?.(brush);
       };
+
       list.appendChild(el);
     });
 
@@ -250,10 +265,9 @@ export class BrushMenu extends VerticalMenu {
     size.className = "slider";
     size.min = 2;
     size.max = 50;
-    size.value = 10;
     size.oninput = () => {
-      this.state.size = +size.value;
-      onChangeSettings(this.settings());
+      this.activeSettings.size = +size.value;
+      this.emitChange();
     };
 
     const hardness = document.createElement("input");
@@ -261,19 +275,20 @@ export class BrushMenu extends VerticalMenu {
     hardness.className = "slider";
     hardness.min = 0.2;
     hardness.max = 1;
-    hardness.value = 1.0;
     hardness.step = 0.1;
     hardness.oninput = () => {
-      this.state.hardness = +hardness.value;
-      onChangeSettings(this.settings());
+      this.activeSettings.hardness = +hardness.value;
+      this.emitChange();
     };
 
     const color = document.createElement("input");
     color.type = "color";
     color.oninput = () => {
-      this.state.color = color.value;
-      onChangeSettings(this.settings());
+      this.activeSettings.color = color.value;
+      this.emitChange();
     };
+
+    this.controls = { size, hardness, color };
 
     this.add(brushLabel);
     this.add(list);
@@ -281,17 +296,38 @@ export class BrushMenu extends VerticalMenu {
     this.add(hardness);
     this.add(color);
 
+    updateActiveBrushLabel();
     this.updateSelection(list);
+    this.syncUI();
+  }
+
+  get activeSettings() {
+    return this.state.brushSettings.get(this.state.activeBrushId);
+  }
+
+  emitChange() {
+    this.onChangeSettings?.({
+      brushId: this.state.activeBrushId,
+      settings: structuredClone(this.activeSettings),
+    });
+  }
+
+  syncUI() {
+    const s = this.activeSettings;
+    if (!s) return;
+
+    this.controls.size.value = s.size;
+    this.controls.hardness.value = s.hardness;
+    this.controls.color.value = s.color;
   }
 
   updateSelection(list) {
     [...list.children].forEach((el) => {
-      el.classList.toggle("active", el.dataset.id === this.state.brushId);
+      el.classList.toggle(
+        "active",
+        el.dataset.id === this.state.activeBrushId,
+      );
     });
-  }
-
-  settings() {
-    return JSON.parse(JSON.stringify(this.state));
   }
 }
 

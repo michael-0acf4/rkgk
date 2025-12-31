@@ -100,7 +100,7 @@ export class Brush {
    * @param {string} color
    * @param {number} hardness
    */
-  async setColor(color, hardness) {
+  async setFilter(color = "#000000", hardness = 1.0) {
     this.color = color;
     this.hardness = hardness;
     /** @type {BrushTexture} */

@@ -76,7 +76,7 @@ async function main() {
     activeLayerIdx %= rkgk.layers.length;
     rkgk.currentLayerId = rkgk.layers[activeLayerIdx].id;
     const color = colorExamples[activeLayerIdx % colorExamples.length];
-    await brush.setColor(color);
+    await brush.setFilter(color);
     await updateBrushThumb();
   }, 2000);
 

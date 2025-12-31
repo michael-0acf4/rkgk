@@ -19,7 +19,7 @@ const brushes = stdBrushes();
 
 async function main() {
   for (const brush of brushes) {
-    await brush.setColor("#000");
+    await brush.setFilter("#000000", 1.0);
   }
   rkgk.brush = brushes[0];
 
@@ -31,18 +31,12 @@ async function main() {
       onSelectBrush: (brush) => {
         rkgk.brush = brush;
       },
-      onChangeSettings: (s) => {
-        Promise.all(brushes.map(async (brush) => {
-          brush.size = s.size;
-          await brush.setColor(s.color, s.hardness);
-          return updateBrushThumbnail(brush);
-        }))
-          .catch(console.error);
-
-        const layer = rkgk.getLayer(rkgk.currentLayerId);
-        if (layer) {
-          layer.opacity = s.opacity;
-        }
+      onChangeSettings: async ({ brushId, settings }) => {
+        const brush = brushes.find((b) => b.id === brushId);
+        if (!brush) return;
+        brush.size = settings.size;
+        await brush.setFilter(settings.color, settings.hardness);
+        updateBrushThumbnail(brush).catch(console.error);
       },
     },
   );
