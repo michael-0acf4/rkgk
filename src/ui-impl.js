@@ -23,7 +23,7 @@ async function main() {
   }
   rkgk.brush = brushes[0];
 
-  const _ = new BrushMenu(
+  new BrushMenu(
     document.getElementById("brushMenu"),
     {
       brushes,
@@ -44,10 +44,13 @@ async function main() {
   new CanvasViewport(
     canvas,
     {
-      onZoom: (z) => {
-        rkgk.scale = z.scale;
+      onZoom: ({ scale }) => {
+        rkgk.scale = scale;
       },
-      onPan: (p) => {},
+      onRedo: (direction) => {
+        rkgk.historyTravel(direction);
+      },
+      onPan: ({ x, y }) => {},
     },
   );
 
@@ -93,7 +96,7 @@ async function main() {
           .catch(console.error);
       },
       onActiveChange(id) {
-        console.log("engine: active layer", id);
+        console.debug("engine: active layer", id);
         rkgk.currentLayerId = id;
       },
     },

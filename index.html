@@ -20,6 +20,9 @@
         --thumb-brush-height: 40px;
         --thumb-active-color: #d0ebff;
         --thumb-active-border-color: #339af0;
+        --floating-menu-background-color: rgba(0, 0, 0, 0.617);
+        --floating-menu-control-color: rgba(118, 106, 106, 0.747);
+        --floating-menu-text-color: white;
       }
 
       html, body {
@@ -172,6 +175,37 @@
         height: 32px;
         padding: 0;
         border: none;
+      }
+
+      .canvas-controls {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        z-index: 1000;
+        background: var(--floating-menu-background-color);
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+
+      .canvas-controls button {
+        cursor: pointer;
+        background: var(--floating-menu-control-color);
+        border: none;
+        color: var(--floating-menu-text-color);
+        font-weight: bold;
+        padding: 2px 6px;
+        border-radius: 3px;
+      }
+
+      .canvas-controls span {
+        min-width: 40px;
+        text-align: center;
+        color: var(--floating-menu-text-color);
       }
     </style>
   </head>

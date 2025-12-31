@@ -177,6 +177,10 @@ export class Brush {
     ctx.restore();
   }
 
+  /**
+   * @param {number} width 
+   * @param {number} height
+   */
   async getThumbnail(width, height) {
     const off = new OffscreenCanvas(width, height);
     const ctx = off.getContext("2d");
@@ -225,12 +229,38 @@ export class Layer {
     this.opacity = 1.0;
     /** @type ImageData[] */
     this.history = [];
+    /** @type ImageData[] */
+    this.redoHistory = [];
   }
 
   snapshot() {
     this.history.push(this.getImageDataBuffer());
     if (this.history.length > MAX_LAYER_HISTORY) {
       this.history.shift();
+    }
+
+    this.redoHistory = []; // !
+  }
+
+  /**
+   * @param {"backward" | "forward"} direction 
+   */
+  historyTravel(direction) {
+    const { context } = this.renderer;
+
+    if (direction === "backward") {
+      if (this.history.length > 1) {
+        const last = this.history.pop();
+        this.redoHistory.push(last);
+        const previous = this.history[this.history.length - 1];
+        context.putImageData(previous, 0, 0);
+      }
+    } else if (direction == "forward") {
+      if (this.redoHistory.length > 0) {
+        const next = this.redoHistory.pop();
+        context.putImageData(next, 0, 0);
+        this.history.push(next);
+      }
     }
   }
 
@@ -239,6 +269,10 @@ export class Layer {
     return context.getImageData(0, 0, canvas.width, canvas.height);
   }
 
+  /**
+   * @param {number} width 
+   * @param {number} height
+   */
   async getThumbnail(width, height) {
     const { canvas } = this.renderer;
 
@@ -341,14 +375,21 @@ export class RkgkEngine {
   addLayer() {
     const { canvas } = this.renderer;
     const layer = new Layer(canvas.width, canvas.height);
+    layer.snapshot();
     this.layers.push(layer);
     return layer.id;
   }
 
+  /**
+   * @param {string} id 
+   */
   removeLayer(id) {
     this.layers = this.layers.filter((l) => l.id != id);
   }
 
+  /**
+   * @param {string} id 
+   */
   getLayer(id) {
     return this.layers.find((l) => l.id == id);
   }
@@ -358,6 +399,16 @@ export class RkgkEngine {
       width: this.renderer.canvas.width,
       height: this.renderer.canvas.height,
     };
+  }
+
+  /**
+   * @param {"backward" | "forward"} direction 
+   */
+  historyTravel(direction) {
+    const layer = this.getLayer(this.currentLayerId);
+    if (layer) {
+      layer.historyTravel(direction);
+    }
   }
 
   /**
@@ -436,9 +487,6 @@ export class RkgkEngine {
     }
   }
 
-  /**
-   * @param {EventState} state
-   */
   pollState() {
     let event;
     while ((event = this.eventBUS.poll())) {

@@ -202,6 +202,7 @@ export class LayerMenu extends VerticalMenu {
     });
   }
 }
+
 export class BrushMenu extends VerticalMenu {
   constructor(
     root,
@@ -332,20 +333,27 @@ export class BrushMenu extends VerticalMenu {
 }
 
 export class CanvasViewport {
-  constructor(canvas, { onZoom, onPan }) {
+  constructor(canvas, { onZoom, onPan, onRedo }) {
     this.canvas = canvas;
     this.onZoom = onZoom;
     this.onPan = onPan;
+    this.onRedo = onRedo;
+
     this.state = { scale: 1, x: 0, y: 0 };
     this.dragging = false;
     this.last = { x: 0, y: 0 };
+
     this.apply();
+    this.createControls();
     this.bind();
   }
 
   apply() {
     const { scale, x, y } = this.state;
     this.canvas.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+    if (this.scaleDisplay) {
+      this.scaleDisplay.textContent = `${Math.round(scale * 100)}%`;
+    }
   }
 
   zoom(factor) {
@@ -361,12 +369,60 @@ export class CanvasViewport {
     this.onPan?.({ x: this.state.x, y: this.state.y });
   }
 
+  reset() {
+    this.state = { scale: 1, x: 0, y: 0 };
+    this.onPan?.({ x: this.state.x, y: this.state.y });
+    this.onZoom?.({ scale: this.state.scale });
+    this.apply();
+  }
+
+  createControls() {
+    this.controls = document.createElement("div");
+    this.controls.className = "canvas-controls";
+
+    const backBtn = document.createElement("button");
+    backBtn.textContent = "<";
+    backBtn.title = "Undo (Ctrl+Z)";
+    backBtn.onclick = () => this.onRedo?.("backward");
+
+    const forwardBtn = document.createElement("button");
+    forwardBtn.textContent = ">";
+    forwardBtn.title = "Redo (Ctrl+Y)";
+    forwardBtn.onclick = () => this.onRedo?.("forward");
+
+    const minus = document.createElement("button");
+    minus.textContent = "-";
+    minus.title = "Zoom Out";
+    minus.onclick = () => this.zoom(0.9);
+
+    const plus = document.createElement("button");
+    plus.textContent = "+";
+    plus.title = "Zoom In";
+    plus.onclick = () => this.zoom(1.1);
+
+    this.scaleDisplay = document.createElement("span");
+    this.scaleDisplay.textContent = `${Math.round(this.state.scale * 100)}%`;
+    this.scaleDisplay.title = "Click to reset zoom/pan";
+    this.scaleDisplay.style.cursor = "pointer";
+    this.scaleDisplay.onclick = () => this.reset();
+
+    this.controls.append(backBtn, minus, this.scaleDisplay, plus, forwardBtn);
+
+    const parent = this.canvas.parentElement;
+    parent.style.position = "relative";
+    parent.appendChild(this.controls);
+  }
+
   bind() {
-    window.addEventListener("wheel", (e) => {
-      if (!e.altKey) return;
-      e.preventDefault();
-      this.zoom(e.deltaY < 0 ? 1.1 : 0.9);
-    }, { passive: false });
+    window.addEventListener(
+      "wheel",
+      (e) => {
+        if (!e.altKey) return;
+        e.preventDefault();
+        this.zoom(e.deltaY < 0 ? 1.1 : 0.9);
+      },
+      { passive: false },
+    );
 
     this.canvas.addEventListener("pointerdown", (e) => {
       this.dragging = true;
@@ -374,7 +430,6 @@ export class CanvasViewport {
       this.last.y = e.clientY;
       this.canvas.setPointerCapture(e.pointerId);
     });
-
     this.canvas.addEventListener("pointermove", (e) => {
       if (!this.dragging || !e.altKey) return;
       this.pan(e.clientX - this.last.x, e.clientY - this.last.y);
@@ -385,6 +440,50 @@ export class CanvasViewport {
     this.canvas.addEventListener("pointerup", (e) => {
       this.dragging = false;
       this.canvas.releasePointerCapture(e.pointerId);
+    });
+
+    window.addEventListener("keydown", (e) => {
+      if (e.target.tagName === "INPUT") return;
+
+      const panStep = e.shiftKey ? 50 : 10;
+      switch (true) {
+        case e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "z": {
+          e.preventDefault();
+          this.onRedo?.("backward");
+          break;
+        }
+        case (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "y") ||
+          (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "z"): {
+          e.preventDefault();
+          this.onRedo?.("forward");
+          break;
+        }
+        case e.key.toLowerCase() === "r": {
+          e.preventDefault();
+          this.reset();
+          break;
+        }
+        case e.key === "ArrowUp": {
+          e.preventDefault();
+          this.pan(0, -panStep);
+          break;
+        }
+        case e.key === "ArrowDown": {
+          e.preventDefault();
+          this.pan(0, panStep);
+          break;
+        }
+        case e.key === "ArrowLeft": {
+          e.preventDefault();
+          this.pan(-panStep, 0);
+          break;
+        }
+        case e.key === "ArrowRight": {
+          e.preventDefault();
+          this.pan(panStep, 0);
+          break;
+        }
+      }
     });
   }
 }
