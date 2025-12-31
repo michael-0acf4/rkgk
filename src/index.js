@@ -17,6 +17,7 @@ rkgk.setupDOMEvents({
   ],
 }); // !
 const brushes = stdBrushes();
+rkgk.currentLayerId = rkgk.addLayer();
 
 async function main() {
   for (const brush of brushes) {
@@ -55,7 +56,6 @@ async function main() {
     },
   );
 
-  rkgk.currentLayerId = rkgk.addLayer();
   const layerMenu = new LayerMenu(
     document.getElementById("layerMenu"),
     rkgk.currentLayerId,

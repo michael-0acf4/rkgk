@@ -188,70 +188,126 @@ export function projectOptionsWindow(rkgk) {
   });
 
   win.setContent((root) => {
-    const resizeRow = document.createElement("div");
-    resizeRow.style.display = "flex";
-    resizeRow.style.alignItems = "center";
-    resizeRow.style.gap = "6px";
-    resizeRow.style.marginBottom = "8px";
-
     const dim = rkgk.getDim();
+    let aspectRatio = dim.width / dim.height;
+    let lockAR = true;
 
-    const widthInput = document.createElement("input");
-    widthInput.type = "number";
-    widthInput.value = dim.width;
-    widthInput.style.width = "60px";
+    root.innerHTML = `
+    <div style="display:flex; flex-direction:column; gap:10px;">
 
-    const heightInput = document.createElement("input");
-    heightInput.type = "number";
-    heightInput.value = dim.height;
-    heightInput.style.width = "60px";
+      <!-- Title -->
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <label for="project_title">Project title</label>
+        <input
+          id="project_title"
+          type="text"
+          placeholder="Project title"
+          value="${rkgk.title ?? "rkgk_untitled"}"
+          style="width: 50%;"
+        />
+      </div>
 
-    const resizeBtn = document.createElement("button");
-    resizeBtn.textContent = "Resize";
-    resizeBtn.onclick = () => {
+      <!-- Resize -->
+      <div style="display:flex; align-items:center; gap:6px;">
+        <input id="width_input" type="number" value="${dim.width}" style="width:70px;" />
+        <span>x</span>
+        <input id="height_input" type="number" value="${dim.height}" style="width:70px;" />
+        <button id="resize_btn">Resize</button>
+      </div>
+
+      <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
+        <input id="lock_ar" type="checkbox" checked />
+        Lock aspect ratio
+      </label>
+      <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
+        <input id="transparent" type="checkbox" checked />
+        Keep transparency
+      </label>
+
+      <!-- Export meta -->
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <label for="key_input">Key (optional)</label>
+        <input
+          id="key_input"
+          type="password"
+          placeholder="Key (optional)"
+          style="width: 80%;"
+        />
+      </div>
+
+      <!-- Actions -->
+      <div style="display:flex; gap:6px;">
+        <button id="download_btn">Download</button>
+        <button id="export_btn">Export</button>
+        <button id="load_btn">Load</button>
+      </div>
+
+    </div>
+  `;
+
+    const titleInput = root.querySelector("#project_title");
+    const widthInput = root.querySelector("#width_input");
+    const heightInput = root.querySelector("#height_input");
+    const lockARInput = root.querySelector("#lock_ar");
+    const transparentInput = root.querySelector("#transparent");
+
+    titleInput.oninput = () => {
+      rkgk.title = titleInput.value;
+    };
+
+    lockARInput.onchange = () => {
+      lockAR = lockARInput.checked;
+      if (lockAR) {
+        const w = +widthInput.value;
+        const h = +heightInput.value;
+        if (w > 0 && h > 0) aspectRatio = w / h;
+      }
+    };
+
+    widthInput.oninput = () => {
+      if (!lockAR) return;
+      const w = +widthInput.value;
+      if (w > 0) {
+        heightInput.value = Math.round(w / aspectRatio);
+      }
+    };
+
+    heightInput.oninput = () => {
+      if (!lockAR) return;
+      const h = +heightInput.value;
+      if (h > 0) {
+        widthInput.value = Math.round(h * aspectRatio);
+      }
+    };
+
+    root.querySelector("#resize_btn").onclick = () => {
       const w = parseInt(widthInput.value, 10);
       const h = parseInt(heightInput.value, 10);
-      if (!isNaN(w) && !isNaN(h)) rkgk.resize(w, h);
+      if (!isNaN(w) && !isNaN(h)) {
+        rkgk.resize(w, h);
+        aspectRatio = w / h;
+      }
     };
 
-    resizeRow.appendChild(widthInput);
-    resizeRow.appendChild(heightInput);
-    resizeRow.appendChild(resizeBtn);
-
-    // Export
-    const exportRow = document.createElement("div");
-    exportRow.style.display = "flex";
-    exportRow.style.gap = "6px";
-
-    const pwInput = document.createElement("input");
-    pwInput.type = "password";
-    pwInput.size = 25;
-    pwInput.placeholder = "Key (optional)";
-
-    const exportImageBtn = document.createElement("button");
-    exportImageBtn.textContent = "Download image";
-    exportImageBtn.onclick = () => {
-      alert("Export image triggered!");
+    root.querySelector("#download_btn").onclick = async () => {
+      const { drawable: img } = await rkgk.getComposedImage(
+        !!transparentInput.checked,
+      );
+      console.log(img.src);
+      const a = document.createElement("a");
+      a.href = img.src;
+      a.download = !rkgk.title ? "rkgk_untitled" : rkgk.title;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     };
 
-    const exportProjectBtn = document.createElement("button");
-    exportProjectBtn.textContent = "Export .rkgk";
-    exportProjectBtn.onclick = () => {
+    root.querySelector("#export_btn").onclick = () => {
       alert("Export project triggered!");
     };
 
-    const loadProjectBtn = document.createElement("button");
-    loadProjectBtn.textContent = "Load .rkgk";
-    loadProjectBtn.onclick = () => {
-      alert("Export project triggered!");
+    root.querySelector("#load_btn").onclick = () => {
+      alert("Load project triggered!");
     };
-
-    exportRow.appendChild(pwInput);
-    exportRow.appendChild(exportImageBtn);
-    exportRow.appendChild(exportProjectBtn);
-    exportRow.appendChild(loadProjectBtn);
-
-    root.appendChild(resizeRow);
-    root.appendChild(exportRow);
   });
 }

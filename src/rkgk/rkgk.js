@@ -53,15 +53,17 @@ function getPointerData(rkgk, e) {
 
 /**
  * @param {OffscreenCanvas | HTMLCanvasElement} canvas
+ * @param {boolean?} transparent
  */
-export async function canvasToImage(canvas) {
-  let url;
+export async function canvasToImage(canvas, transparent = true) {
+  const type = transparent ? "image/png" : "image/jpeg";
 
+  let url;
   if (canvas instanceof OffscreenCanvas) {
-    const blob = await canvas.convertToBlob({ type: "image/png" });
+    const blob = await canvas.convertToBlob({ type });
     url = URL.createObjectURL(blob);
   } else {
-    url = canvas.toDataURL("image/png");
+    url = canvas.toDataURL(type);
   }
 
   const img = new Image();
@@ -346,6 +348,8 @@ export class RkgkEngine {
     this.brush = null;
     /** @type {number} */
     this.scale = null;
+    /** @type {string | null} */
+    this.title = null;
   }
 
   render() {
@@ -444,6 +448,15 @@ export class RkgkEngine {
 
       layer.renderer.context.putImageData(oldLayer, 0, 0);
     }
+  }
+
+  /**
+   * @param {boolean} transparent
+   */
+  async getComposedImage(transparent) {
+    console.log("transp", transparent);
+
+    return await canvasToImage(this.renderer.canvas, transparent);
   }
 
   /**
