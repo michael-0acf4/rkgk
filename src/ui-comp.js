@@ -1,4 +1,5 @@
-import { Layer, RkgkEngine } from "./rkgk.js";
+import { Layer } from "./rkgk.js";
+import { FloatingWindow } from "./ui-window.js";
 
 export function getLayerContainerId({ id }) {
   return ["layer", "container", id].join("-");
@@ -6,6 +7,14 @@ export function getLayerContainerId({ id }) {
 
 export function getBrushContainerId({ id }) {
   return ["brush", "container", id].join("-");
+}
+
+function createSpacer(width = 8) {
+  const spacer = document.createElement("div");
+  spacer.style.width = width + "px";
+  spacer.style.height = "1px";
+  spacer.style.flexShrink = "0"; // won’t collapse in flex
+  return spacer;
 }
 
 export class VerticalMenu {
@@ -380,6 +389,49 @@ export class CanvasViewport {
     this.controls = document.createElement("div");
     this.controls.className = "canvas-controls";
 
+    const project = document.createElement("button");
+    project.textContent = "Project";
+    project.title = "Project options";
+    project.onclick = (e) => {
+      const shortcuts = new FloatingWindow(document.body, {
+        title: "Project options",
+        width: 400,
+        showCancel: true,
+      });
+
+      shortcuts.setContent((root) => {
+        const txt = document.createElement("div");
+        txt.innerHTML = `
+          - set size
+          TODO: export png, export project
+        `;
+        root.appendChild(txt);
+      });
+    };
+
+    const helpBtn = document.createElement("button");
+    helpBtn.textContent = "?";
+    helpBtn.title = "Help";
+    helpBtn.onclick = (e) => {
+      const shortcuts = new FloatingWindow(document.body, {
+        title: "Shortcuts",
+        x: e.clientX + "px",
+        y: e.clientY + "px",
+        width: 300,
+        showCancel: false,
+      });
+
+      shortcuts.setContent((root) => {
+        const txt = document.createElement("div");
+        txt.innerHTML = `
+          <p><b>Pan</b>: Alt+Mouse or Up, Down, Left, Right</p>
+          <p><b>Zoom</b>: Alt+Scroll</p>
+          <p><b>Undo/Redo</b>: ctrl+Z/ctrl+Y</p>
+        `;
+        root.appendChild(txt);
+      });
+    };
+
     const backBtn = document.createElement("button");
     backBtn.textContent = "<";
     backBtn.title = "Undo (Ctrl+Z)";
@@ -406,7 +458,16 @@ export class CanvasViewport {
     this.scaleDisplay.style.cursor = "pointer";
     this.scaleDisplay.onclick = () => this.reset();
 
-    this.controls.append(backBtn, minus, this.scaleDisplay, plus, forwardBtn);
+    this.controls.append(
+      project,
+      createSpacer(12),
+      helpBtn,
+      backBtn,
+      minus,
+      this.scaleDisplay,
+      plus,
+      forwardBtn,
+    );
 
     const parent = this.canvas.parentElement;
     parent.style.position = "relative";

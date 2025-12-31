@@ -178,7 +178,7 @@ export class Brush {
   }
 
   /**
-   * @param {number} width 
+   * @param {number} width
    * @param {number} height
    */
   async getThumbnail(width, height) {
@@ -243,7 +243,7 @@ export class Layer {
   }
 
   /**
-   * @param {"backward" | "forward"} direction 
+   * @param {"backward" | "forward"} direction
    */
   historyTravel(direction) {
     const { context } = this.renderer;
@@ -270,7 +270,7 @@ export class Layer {
   }
 
   /**
-   * @param {number} width 
+   * @param {number} width
    * @param {number} height
    */
   async getThumbnail(width, height) {
@@ -381,14 +381,14 @@ export class RkgkEngine {
   }
 
   /**
-   * @param {string} id 
+   * @param {string} id
    */
   removeLayer(id) {
     this.layers = this.layers.filter((l) => l.id != id);
   }
 
   /**
-   * @param {string} id 
+   * @param {string} id
    */
   getLayer(id) {
     return this.layers.find((l) => l.id == id);
@@ -402,7 +402,7 @@ export class RkgkEngine {
   }
 
   /**
-   * @param {"backward" | "forward"} direction 
+   * @param {"backward" | "forward"} direction
    */
   historyTravel(direction) {
     const layer = this.getLayer(this.currentLayerId);

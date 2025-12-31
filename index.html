@@ -20,8 +20,8 @@
         --thumb-brush-height: 40px;
         --thumb-active-color: #d0ebff;
         --thumb-active-border-color: #339af0;
-        --floating-menu-background-color: rgba(0, 0, 0, 0.617);
-        --floating-menu-control-color: rgba(118, 106, 106, 0.747);
+        --floating-menu-background-color: rgba(45, 149, 187, 0.884);
+        --floating-menu-control-color: rgba(35, 102, 126, 0.631);
         --floating-menu-text-color: white;
       }
 
@@ -206,6 +206,62 @@
         min-width: 40px;
         text-align: center;
         color: var(--floating-menu-text-color);
+      }
+
+      .floating-window {
+        background: var(--floating-menu-background-color);
+        color: var(--floating-menu-text-color);
+        border-radius: 4px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+        font-size: 14px;
+        user-select: none;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column; /* stack header, content, footer */
+      }
+
+      .floating-window-header {
+        padding: 6px 8px;
+        cursor: move;
+        font-weight: bold;
+        background: var(--floating-menu-background-color);
+        flex-shrink: 0;
+      }
+
+      .floating-window-content {
+        padding: 8px;
+        flex: 1; /* take remaining vertical space */
+        overflow: auto;
+      }
+
+      .floating-window-footer {
+        padding: 6px 8px;
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        flex-shrink: 0; /* prevent shrinking */
+        background: var(--floating-menu-background-color);
+      }
+
+      .floating-window-footer button {
+        background: var(--floating-menu-control-color);
+        border: none;
+        color: var(--floating-menu-text-color);
+        border-radius: 3px;
+        padding: 4px 6px;
+        font-weight: bold;
+        cursor: pointer;
+      }
+
+      .floating-window-resize-handle {
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        bottom: 2px;
+        right: 2px;
+        cursor: se-resize;
+        background: var(--floating-menu-control-color);
+        border-radius: 2px;
       }
     </style>
   </head>

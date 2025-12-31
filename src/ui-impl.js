@@ -7,6 +7,7 @@ import {
   updateBrushThumbnail,
   updateLayerThumbnail,
 } from "./ui-comp.js";
+import { FloatingWindow } from "./ui-window.js";
 
 const canvas = document.getElementById("canvas");
 const rkgk = new RkgkEngine(canvas);
@@ -123,6 +124,38 @@ async function main() {
       await updateLayerThumbnail(layer);
     }
   }, 1000);
+
+  // Global
+  window.addEventListener("drop", (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (!file?.type.startsWith("image/")) return;
+
+    const url = URL.createObjectURL(file);
+    const win = new FloatingWindow(document.body, {
+      title: file.name.substring(0, 32) + "..",
+      width: 400,
+      height: null,
+      x: e.clientX,
+      y: e.clientY,
+      showCancel: false,
+    });
+
+    win.setContent((root) => {
+      const img = document.createElement("img");
+      img.src = url;
+      img.style.maxWidth = "100%";
+      img.style.maxHeight = "100%";
+      img.style.display = "block";
+
+      // Disable ability to drag and drop inner images
+      // otherwise we can trigger unwanted accidental dup windows
+      img.draggable = false;
+
+      root.appendChild(img);
+    });
+  });
+  window.addEventListener("dragover", (e) => e.preventDefault());
 }
 
 main()
