@@ -1,5 +1,5 @@
 import { Layer } from "../rkgk/rkgk.js";
-import { FloatingWindow, projectOptionsWindow } from "./ui-window.js";
+import { createSpacer, helpWindow, projectOptionsWindow } from "./ui-window.js";
 
 export function getLayerContainerId({ id }) {
   return ["layer", "container", id].join("-");
@@ -7,14 +7,6 @@ export function getLayerContainerId({ id }) {
 
 export function getBrushContainerId({ id }) {
   return ["brush", "container", id].join("-");
-}
-
-function createSpacer(width = 8) {
-  const spacer = document.createElement("div");
-  spacer.style.width = width + "px";
-  spacer.style.height = "1px";
-  spacer.style.flexShrink = "0"; // won’t collapse in flex
-  return spacer;
 }
 
 export class VerticalMenu {
@@ -401,24 +393,7 @@ export class CanvasViewport {
     helpBtn.textContent = "?";
     helpBtn.title = "Help";
     helpBtn.onclick = (e) => {
-      const shortcuts = new FloatingWindow(document.body, {
-        title: "Help",
-        width: 420,
-        showCancel: false,
-      });
-
-      shortcuts.setContent((root) => {
-        const txt = document.createElement("div");
-        txt.innerHTML = `
-          <p><b>Pan</b>: Alt+Mouse or Up, Down, Left, Right</p>
-          <p><b>Zoom</b>: Alt+Scroll</p>
-          <p><b>Reset</b>: Alt+R, or by *clicking* on the zoom value</p>
-          <p><b>Undo/Redo</b>: Ctrl+Z/Ctrl+Y</p>
-          <br/>
-          <p><b>References</b>: you can <b>drag & drop</b> images to use as a reference</p>
-        `;
-        root.appendChild(txt);
-      });
+      helpWindow();
     };
 
     const backBtn = document.createElement("button");

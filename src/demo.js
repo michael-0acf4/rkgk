@@ -23,7 +23,7 @@ async function main() {
   });
 
   // Compiles a brush texture into a concrete colored Image object
-  await brush.setColor("#dc2626fa");
+  await brush.setFilter("#dc2626fa");
 
   const canvas = document.getElementById("canvas");
   const rkgk = new RkgkEngine(canvas);

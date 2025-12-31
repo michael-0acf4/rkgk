@@ -43,7 +43,7 @@ async function main() {
   );
 
   new CanvasViewport(
-    {canvas, rkgk},
+    { canvas, rkgk },
     {
       onZoom: ({ scale }) => {
         rkgk.scale = scale;
@@ -133,12 +133,13 @@ async function main() {
 
     const url = URL.createObjectURL(file);
     const win = new FloatingWindow(document.body, {
-      title: file.name.substring(0, 32) + "..",
+      title: file.name,
       width: 400,
       height: null,
       x: e.clientX,
       y: e.clientY,
       showCancel: false,
+      makeUnique: true,
     });
 
     win.setContent((root) => {
