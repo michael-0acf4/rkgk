@@ -1,5 +1,5 @@
-import { Layer } from "./rkgk.js";
-import { FloatingWindow } from "./ui-window.js";
+import { Layer } from "../rkgk/rkgk.js";
+import { FloatingWindow, projectOptionsWindow } from "./ui-window.js";
 
 export function getLayerContainerId({ id }) {
   return ["layer", "container", id].join("-");
@@ -342,8 +342,9 @@ export class BrushMenu extends VerticalMenu {
 }
 
 export class CanvasViewport {
-  constructor(canvas, { onZoom, onPan, onRedo }) {
+  constructor({ canvas, rkgk }, { onZoom, onPan, onRedo }) {
     this.canvas = canvas;
+    this.rkgk = rkgk;
     this.onZoom = onZoom;
     this.onPan = onPan;
     this.onRedo = onRedo;
@@ -393,20 +394,7 @@ export class CanvasViewport {
     project.textContent = "Project";
     project.title = "Project options";
     project.onclick = (e) => {
-      const shortcuts = new FloatingWindow(document.body, {
-        title: "Project options",
-        width: 400,
-        showCancel: true,
-      });
-
-      shortcuts.setContent((root) => {
-        const txt = document.createElement("div");
-        txt.innerHTML = `
-          - set size
-          TODO: export png, export project
-        `;
-        root.appendChild(txt);
-      });
+      projectOptionsWindow(this.rkgk);
     };
 
     const helpBtn = document.createElement("button");
@@ -414,10 +402,8 @@ export class CanvasViewport {
     helpBtn.title = "Help";
     helpBtn.onclick = (e) => {
       const shortcuts = new FloatingWindow(document.body, {
-        title: "Shortcuts",
-        x: e.clientX + "px",
-        y: e.clientY + "px",
-        width: 300,
+        title: "Help",
+        width: 420,
         showCancel: false,
       });
 
@@ -426,7 +412,10 @@ export class CanvasViewport {
         txt.innerHTML = `
           <p><b>Pan</b>: Alt+Mouse or Up, Down, Left, Right</p>
           <p><b>Zoom</b>: Alt+Scroll</p>
-          <p><b>Undo/Redo</b>: ctrl+Z/ctrl+Y</p>
+          <p><b>Reset</b>: Alt+R, or by *clicking* on the zoom value</p>
+          <p><b>Undo/Redo</b>: Ctrl+Z/Ctrl+Y</p>
+          <br/>
+          <p><b>References</b>: you can <b>drag & drop</b> images to use as a reference</p>
         `;
         root.appendChild(txt);
       });
@@ -460,8 +449,8 @@ export class CanvasViewport {
 
     this.controls.append(
       project,
-      createSpacer(12),
       helpBtn,
+      createSpacer(48),
       backBtn,
       minus,
       this.scaleDisplay,

@@ -24,8 +24,8 @@ export class FloatingWindow {
       this.el.style.height = height + "px";
     }
     this.el.style.position = "fixed";
-    const offset = 15; // pixels to offset from cursor
 
+    const offset = 15; // pixels to offset from cursor
     this.el.style.left = x != null
       ? `${x + offset}px`
       : `${(window.innerWidth - width) / 2}px`;
@@ -128,4 +128,21 @@ export class FloatingWindow {
     this.el.remove();
     this.onClose?.(ok);
   }
+}
+
+export function projectOptionsWindow(rkgk) {
+  const shortcuts = new FloatingWindow(document.body, {
+    title: "Project options",
+    width: 400,
+    showCancel: true,
+  });
+
+  shortcuts.setContent((root) => {
+    const txt = document.createElement("div");
+    txt.innerHTML = `
+      - set size
+      TODO: export png, export project
+    `;
+    root.appendChild(txt);
+  });
 }

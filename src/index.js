@@ -1,13 +1,13 @@
-import { RkgkEngine } from "./rkgk.js";
-import { stdBrushes } from "./rkgk-brushes.js";
+import { RkgkEngine } from "./rkgk/rkgk.js";
+import { stdBrushes } from "./rkgk/rkgk-brushes.js";
 import {
   BrushMenu,
   CanvasViewport,
   LayerMenu,
   updateBrushThumbnail,
   updateLayerThumbnail,
-} from "./ui-comp.js";
-import { FloatingWindow } from "./ui-window.js";
+} from "./ui/ui-comp.js";
+import { FloatingWindow } from "./ui/ui-window.js";
 
 const canvas = document.getElementById("canvas");
 const rkgk = new RkgkEngine(canvas);
@@ -43,7 +43,7 @@ async function main() {
   );
 
   new CanvasViewport(
-    canvas,
+    {canvas, rkgk},
     {
       onZoom: ({ scale }) => {
         rkgk.scale = scale;

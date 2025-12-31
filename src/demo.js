@@ -1,5 +1,5 @@
-import { Brush, RkgkEngine } from "./rkgk.js";
-import { texProceduralMarker } from "./rkgk-brushes.js";
+import { Brush, RkgkEngine } from "./rkgk/rkgk.js";
+import { texProceduralMarker } from "./rkgk/rkgk-brushes.js";
 
 async function main() {
   const texMarker = texProceduralMarker(10);
