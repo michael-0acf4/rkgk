@@ -19,6 +19,8 @@ rkgk.setupDOMEvents({
 const brushes = stdBrushes();
 rkgk.currentLayerId = rkgk.addLayer();
 
+// rkgk.drawDebugNumber();
+
 async function main() {
   for (const brush of brushes) {
     await brush.setFilter("#000000", 1.0);
@@ -56,54 +58,10 @@ async function main() {
     },
   );
 
-  const layerMenu = new LayerMenu(
+  new LayerMenu(
     document.getElementById("layerMenu"),
-    rkgk.currentLayerId,
-    {
-      onAddLayer() {
-        rkgk.addLayer();
-        layerMenu.setLayers(rkgk.layers);
-
-        Promise.all(rkgk.layers.map(updateLayerThumbnail))
-          .catch(console.error);
-      },
-      onRemoveLayer(id) {
-        rkgk.removeLayer(id);
-        layerMenu.setLayers(rkgk.layers);
-      },
-      onInsert({ fromId, toId }) {
-        const layers = rkgk.layers;
-
-        const fromIndex = layers.findIndex((l) => l.id == fromId);
-        const toIndex = layers.findIndex((l) => l.id == toId);
-
-        if (fromIndex < 0 || toIndex < 0) {
-          console.error(
-            "Could not insert swap: one of the operands is undefined",
-            fromIndex,
-            fromId,
-            "vs",
-            toIndex,
-            toId,
-          );
-          return;
-        }
-
-        const [moved] = layers.splice(fromIndex, 1);
-        layers.splice(toIndex, 0, moved);
-
-        layerMenu.setLayers(layers);
-        Promise.all(layers.map(updateLayerThumbnail))
-          .catch(console.error);
-      },
-      onActiveChange(id) {
-        console.debug("engine: active layer", id);
-        rkgk.currentLayerId = id;
-      },
-    },
+    { rkgk },
   );
-
-  layerMenu.setLayers(rkgk.layers);
 
   function draw() {
     rkgk.pollState();

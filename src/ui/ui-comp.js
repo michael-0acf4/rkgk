@@ -82,110 +82,50 @@ class LayerComponent {
 }
 
 export class LayerMenu extends VerticalMenu {
-  constructor(
-    root,
-    activeId,
-    { onAddLayer, onRemoveLayer, onInsert, onActiveChange },
-  ) {
+  constructor(root, { rkgk }) {
     super(root);
-    this.onAddLayer = onAddLayer;
-    this.onRemoveLayer = onRemoveLayer;
-    this.onInsert = onInsert;
-    this.onActiveChange = onActiveChange;
-
+    this.rkgk = rkgk;
     this.state = {
-      activeId,
-      layerRows: new Map(), // map layerId -> row element
+      layerRows: new Map(), // layerId -> row element
     };
+
+    this.initUI();
+    this.update();
   }
 
-  setLayers(layers) {
-    const list = this.layerList || document.createElement("div");
-    list.className = "layer-list";
-    this.layerList = list;
-    this.layers = layers;
+  initUI() {
+    this.addBtn = document.createElement("button");
+    this.addBtn.className = "button";
+    this.addBtn.textContent = "+ Layer";
+    this.addBtn.onclick = () => {
+      const newLayer = this.rkgk.addLayer();
+      this.rkgk.currentLayerId = newLayer.id;
+      this.update();
+      updateLayerThumbnail(newLayer).catch(console.error);
+    };
 
-    if (!this.addBtn) {
-      const addBtn = document.createElement("button");
-      addBtn.className = "button";
-      addBtn.textContent = "+ Layer";
-      addBtn.onclick = () => this.onAddLayer();
-      this.addBtn = addBtn;
-      this.add(addBtn);
-    }
+    this.opacityInput = document.createElement("input");
+    this.opacityInput.type = "range";
+    this.opacityInput.className = "slider";
+    this.opacityInput.min = 0;
+    this.opacityInput.max = 1;
+    this.opacityInput.step = 0.01;
+    this.opacityInput.oninput = () => {
+      const layer = this.rkgk.getLayer(this.rkgk.currentLayerId);
+      if (layer) layer.opacity = +this.opacityInput.value;
+    };
 
-    if (!this.opacityInput) {
-      const opacity = document.createElement("input");
-      opacity.type = "range";
-      opacity.className = "slider";
-      opacity.min = 0;
-      opacity.max = 1;
-      opacity.step = 0.01;
-      this.opacityInput = opacity;
-      this.add(opacity);
+    this.layerList = document.createElement("div");
+    this.layerList.className = "layer-list";
 
-      opacity.oninput = () => {
-        const layer = this.layers.find((l) => l.id === this.state.activeId);
-        if (layer) layer.opacity = +opacity.value;
-      };
-    }
+    this.add(this.addBtn);
+    this.add(this.opacityInput);
+    this.add(this.layerList);
+  }
 
-    const activeLayer = layers.find((l) => l.id === this.state.activeId);
-    if (activeLayer) {
-      this.opacityInput.value = activeLayer.opacity ?? 1;
-    }
-
-    if (!list.parentNode) this.add(list);
-
-    layers.forEach((layer) => {
-      let row = this.state.layerRows.get(layer.id);
-      if (!row) {
-        row = new LayerComponent(layer, this.onRemoveLayer).create();
-        row.dataset.id = layer.id;
-        list.appendChild(row);
-        this.state.layerRows.set(layer.id, row);
-
-        row.addEventListener("dragstart", (e) => {
-          e.dataTransfer.setData("text/plain", layer.id);
-        });
-        row.addEventListener("dragover", (e) => e.preventDefault());
-        row.addEventListener("drop", (e) => {
-          e.preventDefault();
-          const fromId = e.dataTransfer.getData("text/plain");
-          const toId = layer.id;
-          if (fromId && fromId !== toId) {
-            const fromRow = this.state.layerRows.get(fromId);
-            const toRow = this.state.layerRows.get(toId);
-            if (!fromRow || !toRow) return;
-
-            const list = toRow.parentNode;
-
-            //! swap nodes: visually
-            const children = [...list.children];
-            const fromIndex = children.indexOf(fromRow);
-            const toIndex = children.indexOf(toRow);
-            list.removeChild(fromRow);
-
-            if (fromIndex < toIndex) {
-              list.insertBefore(fromRow, toRow.nextSibling);
-            } else {
-              list.insertBefore(fromRow, toRow);
-            }
-
-            this.onInsert({ fromId, toId });
-          }
-        });
-
-        row.onclick = () => {
-          this.state.activeId = layer.id;
-          this.opacityInput.value = layer.opacity ?? 1;
-          this.updateActive(list);
-          this.onActiveChange?.(layer.id);
-        };
-      } else {
-        // row already exists
-      }
-    });
+  update() {
+    const layers = this.rkgk.layers;
+    const list = this.layerList;
 
     const alive = new Set(layers.map((l) => l.id));
     for (const [id, row] of this.state.layerRows) {
@@ -194,12 +134,72 @@ export class LayerMenu extends VerticalMenu {
         this.state.layerRows.delete(id);
       }
     }
-    this.updateActive(list);
+
+    const reversedLayers = [...layers].reverse();
+    reversedLayers.forEach((layer, uiIndex) => {
+      let row = this.state.layerRows.get(layer.id);
+      if (!row) {
+        row = this.createRow(layer);
+        this.state.layerRows.set(layer.id, row);
+      }
+
+      if (list.children[uiIndex] !== row) {
+        list.insertBefore(row, list.children[uiIndex] || null);
+      }
+    });
+
+    const activeLayer = layers.find((l) => l.id === this.rkgk.currentLayerId);
+    if (activeLayer) this.opacityInput.value = activeLayer.opacity ?? 1;
+
+    this.updateActive();
   }
 
-  updateActive(list) {
-    [...list.children].forEach((el) => {
-      el.classList.toggle("active", el.dataset.id === this.state.activeId);
+  createRow(layer) {
+    const row = new LayerComponent(layer, () => {
+      this.rkgk.removeLayer(layer.id);
+      if (this.rkgk.currentLayerId === layer.id) {
+        this.rkgk.currentLayerId =
+          this.rkgk.layers[this.rkgk.layers.length - 1]?.id ?? null;
+      }
+      this.update();
+    }).create();
+
+    row.dataset.id = layer.id;
+    row.draggable = true;
+
+    row.addEventListener("dragstart", (e) => {
+      e.dataTransfer.setData("text/plain", layer.id);
+    });
+
+    row.addEventListener("dragover", (e) => e.preventDefault());
+    row.addEventListener("drop", (e) => {
+      e.preventDefault();
+      const fromId = e.dataTransfer.getData("text/plain");
+      const toId = layer.id;
+      if (!fromId || fromId === toId) return;
+
+      const layers = this.rkgk.layers;
+      const fromIndex = layers.findIndex((l) => l.id === fromId);
+      const toIndex = layers.findIndex((l) => l.id === toId);
+
+      const [movedLayer] = layers.splice(fromIndex, 1);
+      layers.splice(toIndex, 0, movedLayer);
+
+      this.update();
+    });
+
+    row.onclick = () => {
+      this.rkgk.currentLayerId = layer.id;
+      this.opacityInput.value = layer.opacity ?? 1;
+      this.updateActive();
+    };
+
+    return row;
+  }
+
+  updateActive() {
+    [...this.layerList.children].forEach((el) => {
+      el.classList.toggle("active", el.dataset.id === this.rkgk.currentLayerId);
     });
   }
 }
@@ -521,6 +521,8 @@ export async function updateLayerThumbnail(layer) {
   }
 
   const img = await layer.getThumbnail(64, 86);
+  img.drawable.draggable = false;
+
   div.innerHTML = "";
   div.appendChild(img.drawable);
 }
@@ -534,6 +536,7 @@ export async function updateBrushThumbnail(brush) {
   }
 
   const img = await brush.getThumbnail(100, 40);
+  img.drawable.draggable = false;
   div.innerHTML = "";
   div.appendChild(img.drawable);
 }

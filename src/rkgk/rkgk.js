@@ -454,9 +454,19 @@ export class RkgkEngine {
    * @param {boolean} transparent
    */
   async getComposedImage(transparent) {
-    console.log("transp", transparent);
-
     return await canvasToImage(this.renderer.canvas, transparent);
+  }
+
+  drawDebugNumber() {
+    const c = () => Math.floor(Math.random() * 1000) % 255;
+    this.layers.forEach((layer, i) => {
+      const { renderer } = layer;
+      const px = Math.round(renderer.canvas.height / 2);
+      renderer.context.font = px + "px serif";
+      renderer.context.fillStyle = `rgb(${[c(), c(), c()].join(", ")})`;
+      renderer.context.fillText("" + i, 0, px);
+      layer.snapshot();
+    });
   }
 
   /**
