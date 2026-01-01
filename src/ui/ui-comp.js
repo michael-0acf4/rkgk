@@ -334,183 +334,285 @@ export class BrushMenu extends VerticalMenu {
 }
 
 export class CanvasViewport {
-  constructor({ canvas, rkgk }, { onZoom, onPan, onRedo, onRequestUIReload }) {
-    this.canvas = canvas;
+  constructor(rkgk, { onZoom, onPan, onRedo, onRequestUIReload }) {
     this.rkgk = rkgk;
     this.onZoom = onZoom;
     this.onPan = onPan;
     this.onRedo = onRedo;
     this.onRequestUIReload = onRequestUIReload;
 
-    this.state = { scale: 1, x: 0, y: 0 };
+    this.state = {
+      scale: 1,
+      x: 0,
+      y: 0,
+    };
+
     this.dragging = false;
     this.last = { x: 0, y: 0 };
+    this.activePointerId = null;
+    this.canvas = null;
 
-    this.apply();
     this.createControls();
-    this.bind();
+    this.update(); // attach initial canvas
   }
 
   apply() {
-    const { scale, x, y } = this.state;
+    if (!this.canvas) return;
+
+    const { x, y, scale } = this.state;
     this.canvas.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+
     if (this.scaleDisplay) {
       this.scaleDisplay.textContent = `${Math.round(scale * 100)}%`;
     }
   }
 
-  zoom(factor) {
-    this.state.scale = Math.min(4, Math.max(0.1, this.state.scale * factor));
+  clampPan() {
+    const MAX = 100_000; // pragmatic safety bound
+    this.state.x = Math.max(-MAX, Math.min(MAX, this.state.x));
+    this.state.y = Math.max(-MAX, Math.min(MAX, this.state.y));
+  }
+
+  zoomAt(factor, screenX, screenY) {
+    if (!this.canvas) return;
+
+    const prev = this.state.scale;
+    const next = Math.min(4, Math.max(0.1, prev * factor));
+    if (prev === next) return;
+
+    const rect = this.canvas.getBoundingClientRect();
+    const px = screenX - rect.left;
+    const py = screenY - rect.top;
+
+    // keep (px, py) visually fixed
+    const k = next / prev;
+    this.state.x -= px * (k - 1);
+    this.state.y -= py * (k - 1);
+
+    this.state.scale = next;
+    this.clampPan();
     this.apply();
-    this.onZoom?.({ scale: this.state.scale });
+
+    this.onZoom?.({ scale: next });
   }
 
   pan(dx, dy) {
     this.state.x += dx;
     this.state.y += dy;
+    this.clampPan();
     this.apply();
+
     this.onPan?.({ x: this.state.x, y: this.state.y });
   }
 
   reset() {
     this.state = { scale: 1, x: 0, y: 0 };
-    this.onPan?.({ x: this.state.x, y: this.state.y });
-    this.onZoom?.({ scale: this.state.scale });
+    this.apply();
+
+    this.onPan?.({ x: 0, y: 0 });
+    this.onZoom?.({ scale: 1 });
+  }
+
+  /* ---------------- lifecycle ---------------- */
+
+  update() {
+    const nextCanvas = this.rkgk?.renderer?.canvas ?? null;
+    if (nextCanvas === this.canvas) return;
+
+    this.detach();
+    if (nextCanvas) this.attach(nextCanvas);
+  }
+
+  centerCanvas() {
+    if (!this.canvas) return;
+
+    // const viewport = this.canvas.parentElement.getBoundingClientRect();
+    // this.state.x = (viewport.width  - this.canvas.width  * this.state.scale) / 2;
+    // this.state.y = (viewport.height - this.canvas.height * this.state.scale) / 2;
+
+    this.state.x = (-this.canvas.width * this.state.scale) / 2;
+    this.state.y = (-this.canvas.height * this.state.scale) / 2;
+
     this.apply();
   }
 
+  attach(canvas) {
+    // const newRect = canvas.getBoundingClientRect();
+
+    // if (this.lastCanvasRect) {
+    //   // preserve center position
+    //   const dx = (newRect.width  - this.lastCanvasRect.width)  / 2;
+    //   const dy = (newRect.height - this.lastCanvasRect.height) / 2;
+
+    //   this.state.x -= dx * this.state.scale;
+    //   this.state.y -= dy * this.state.scale;
+    // }
+
+    this.canvas = canvas;
+    // this.lastCanvasRect = newRect;
+
+    // canvas.style.transformOrigin = "0 0";
+
+    this.clampPan();
+    this.apply();
+    this.bind();
+    this.centerCanvas();
+  }
+
+  detach() {
+    if (!this.canvas) return;
+
+    if (this.activePointerId != null) {
+      try {
+        this.canvas.releasePointerCapture(this.activePointerId);
+      } catch {}
+    }
+
+    this.unbind();
+    this.canvas = null;
+    this.dragging = false;
+    this.activePointerId = null;
+  }
+
+  destroy() {
+    this.detach();
+
+    if (this.controls?.parentNode) {
+      this.controls.parentNode.removeChild(this.controls);
+    }
+
+    this.controls = null;
+    this.scaleDisplay = null;
+    this.rkgk = null;
+  }
+
   createControls() {
+    const btn = (text, title, fn) => {
+      const b = document.createElement("button");
+      b.textContent = text;
+      b.title = title;
+      b.onclick = fn;
+      return b;
+    };
+
     this.controls = document.createElement("div");
     this.controls.className = "canvas-controls";
 
-    const project = document.createElement("button");
-    project.textContent = "Project";
-    project.title = "Project options";
-    project.onclick = (e) => {
-      projectOptionsWindow(this.rkgk, this.onRequestUIReload);
-    };
-
-    const helpBtn = document.createElement("button");
-    helpBtn.textContent = "?";
-    helpBtn.title = "Help";
-    helpBtn.onclick = (e) => {
-      helpWindow();
-    };
-
-    const backBtn = document.createElement("button");
-    backBtn.textContent = "<";
-    backBtn.title = "Undo (Ctrl+Z)";
-    backBtn.onclick = () => this.onRedo?.("backward");
-
-    const forwardBtn = document.createElement("button");
-    forwardBtn.textContent = ">";
-    forwardBtn.title = "Redo (Ctrl+Y)";
-    forwardBtn.onclick = () => this.onRedo?.("forward");
-
-    const minus = document.createElement("button");
-    minus.textContent = "-";
-    minus.title = "Zoom Out";
-    minus.onclick = () => this.zoom(0.9);
-
-    const plus = document.createElement("button");
-    plus.textContent = "+";
-    plus.title = "Zoom In";
-    plus.onclick = () => this.zoom(1.1);
-
     this.scaleDisplay = document.createElement("span");
-    this.scaleDisplay.textContent = `${Math.round(this.state.scale * 100)}%`;
-    this.scaleDisplay.title = "Click to reset zoom/pan";
     this.scaleDisplay.style.cursor = "pointer";
+    this.scaleDisplay.title = "Reset zoom & pan";
     this.scaleDisplay.onclick = () => this.reset();
 
     this.controls.append(
-      project,
-      helpBtn,
+      btn(
+        "Project",
+        "Project options",
+        () => projectOptionsWindow(this.rkgk, this.onRequestUIReload),
+      ),
+      btn("?", "Help", () => helpWindow()),
       createSpacer(48),
-      backBtn,
-      minus,
+      btn("<", "Undo (Ctrl+Z)", () => this.onRedo?.("backward")),
+      btn(
+        "-",
+        "Zoom out",
+        () => this.zoomAt(0.9, window.innerWidth / 2, window.innerHeight / 2),
+      ),
       this.scaleDisplay,
-      plus,
-      forwardBtn,
+      btn(
+        "+",
+        "Zoom in",
+        () => this.zoomAt(1.1, window.innerWidth / 2, window.innerHeight / 2),
+      ),
+      btn(">", "Redo (Ctrl+Y)", () => this.onRedo?.("forward")),
     );
 
-    const parent = this.canvas.parentElement;
+    const parent = document.body;
     parent.style.position = "relative";
     parent.appendChild(this.controls);
   }
 
   bind() {
-    window.addEventListener(
-      "wheel",
-      (e) => {
-        if (!e.altKey) return;
-        e.preventDefault();
-        this.zoom(e.deltaY < 0 ? 1.1 : 0.9);
-      },
-      { passive: false },
-    );
+    this.onWheel = (e) => {
+      if (!e.altKey) return;
+      e.preventDefault();
 
-    this.canvas.addEventListener("pointerdown", (e) => {
+      const factor = e.deltaY < 0 ? 1.1 : 0.9;
+      this.zoomAt(factor, e.clientX, e.clientY);
+    };
+
+    this.onPointerDown = (e) => {
       this.dragging = true;
+      this.activePointerId = e.pointerId;
       this.last.x = e.clientX;
       this.last.y = e.clientY;
       this.canvas.setPointerCapture(e.pointerId);
-    });
-    this.canvas.addEventListener("pointermove", (e) => {
+    };
+
+    this.onPointerMove = (e) => {
       if (!this.dragging || !e.altKey) return;
       this.pan(e.clientX - this.last.x, e.clientY - this.last.y);
       this.last.x = e.clientX;
       this.last.y = e.clientY;
-    });
+    };
 
-    this.canvas.addEventListener("pointerup", (e) => {
-      this.dragging = false;
-      this.canvas.releasePointerCapture(e.pointerId);
-    });
+    this.onPointerUp = (e) => {
+      if (this.activePointerId === e.pointerId) {
+        this.dragging = false;
+        this.activePointerId = null;
+        this.canvas.releasePointerCapture(e.pointerId);
+      }
+    };
 
-    window.addEventListener("keydown", (e) => {
+    this.onKeyDown = (e) => {
       if (e.target.tagName === "INPUT") return;
 
       const panStep = e.shiftKey ? 50 : 10;
-      switch (true) {
-        case e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "z": {
-          e.preventDefault();
-          this.onRedo?.("backward");
-          break;
-        }
-        case (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "y") ||
-          (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "z"): {
-          e.preventDefault();
-          this.onRedo?.("forward");
-          break;
-        }
-        case e.key.toLowerCase() === "r": {
-          e.preventDefault();
-          this.reset();
-          break;
-        }
-        case e.key === "ArrowUp": {
-          e.preventDefault();
-          this.pan(0, -panStep);
-          break;
-        }
-        case e.key === "ArrowDown": {
-          e.preventDefault();
-          this.pan(0, panStep);
-          break;
-        }
-        case e.key === "ArrowLeft": {
-          e.preventDefault();
-          this.pan(-panStep, 0);
-          break;
-        }
-        case e.key === "ArrowRight": {
-          e.preventDefault();
-          this.pan(panStep, 0);
-          break;
-        }
+      const k = e.key.toLowerCase();
+
+      if (e.ctrlKey && !e.shiftKey && k === "z") {
+        e.preventDefault();
+        this.onRedo?.("backward");
+      } else if (
+        (e.ctrlKey && !e.shiftKey && k === "y") ||
+        (e.ctrlKey && e.shiftKey && k === "z")
+      ) {
+        e.preventDefault();
+        this.onRedo?.("forward");
+      } else if (k === "r") {
+        e.preventDefault();
+        this.reset();
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        this.pan(0, -panStep);
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        this.pan(0, panStep);
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        this.pan(-panStep, 0);
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        this.pan(panStep, 0);
       }
-    });
+    };
+
+    window.addEventListener("wheel", this.onWheel, { passive: false });
+    window.addEventListener("keydown", this.onKeyDown);
+
+    this.canvas.addEventListener("pointerdown", this.onPointerDown);
+    this.canvas.addEventListener("pointermove", this.onPointerMove);
+    this.canvas.addEventListener("pointerup", this.onPointerUp);
+  }
+
+  unbind() {
+    window.removeEventListener("wheel", this.onWheel);
+    window.removeEventListener("keydown", this.onKeyDown);
+
+    if (!this.canvas) return;
+
+    this.canvas.removeEventListener("pointerdown", this.onPointerDown);
+    this.canvas.removeEventListener("pointermove", this.onPointerMove);
+    this.canvas.removeEventListener("pointerup", this.onPointerUp);
   }
 }
 

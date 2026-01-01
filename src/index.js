@@ -17,6 +17,9 @@ rkgk.setupDOMEvents({
   ],
 }); // !
 const brushes = stdBrushes();
+// rkgk.currentLayerId = rkgk.addLayer();
+// rkgk.currentLayerId = rkgk.addLayer();
+// rkgk.currentLayerId = rkgk.addLayer();
 rkgk.currentLayerId = rkgk.addLayer();
 
 // rkgk.drawDebugNumber();
@@ -45,8 +48,8 @@ async function main() {
     },
   );
 
-  new CanvasViewport(
-    { canvas, rkgk },
+  const canvasViewport = new CanvasViewport(
+    rkgk,
     {
       onZoom: ({ scale }) => {
         rkgk.scale = scale;
@@ -67,19 +70,6 @@ async function main() {
     { rkgk },
   );
 
-  function reloadProject() {
-    layerMenu.update();
-    Promise.all(rkgk.layers.map(updateLayerThumbnail))
-      .catch(console.error);
-  }
-
-  function draw() {
-    rkgk.pollState();
-    rkgk.render();
-    requestAnimationFrame(draw);
-  }
-  draw();
-
   // Thumbs
   Promise.all(rkgk.layers.map(updateLayerThumbnail))
     .catch(console.error);
@@ -92,6 +82,20 @@ async function main() {
       await updateLayerThumbnail(layer);
     }
   }, 1000);
+
+  function reloadProject() {
+    layerMenu.update();
+    canvasViewport.update();
+    Promise.all(rkgk.layers.map(updateLayerThumbnail))
+      .catch(console.error);
+  }
+
+  function draw() {
+    rkgk.pollState();
+    rkgk.render();
+    requestAnimationFrame(draw);
+  }
+  draw();
 
   // Global
   window.addEventListener("drop", (e) => {

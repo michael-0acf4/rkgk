@@ -745,6 +745,8 @@ export class Serializer {
             salt: Array.from(locked.salt),
             buffer: Serializer.bufferToJSON(locked.buffer),
           },
+          isVisible: layer.isVisible,
+          id: layer.id,
           opacity: layer.opacity,
         };
       }),
@@ -754,6 +756,7 @@ export class Serializer {
       version: 1,
       title: rkgk.title,
       finalImage: rkgk.getComposedImageData(),
+      currentLayerId: rkgk.currentLayerId,
       layers,
     });
   }
@@ -766,20 +769,23 @@ export class Serializer {
     const projectJson = JSON.parse(rawProjectData);
     rkgk.title = projectJson.title ?? "rkgk_import_untitled";
     rkgk.layers = [];
+    rkgk.currentLayerId = projectJson.currentLayerId;
 
     let metSize = false;
 
     const recoverableErrors = [];
-    console.log(projectJson.layers);
-    for (const { scheme, imageDataLocked, opacity } of projectJson.layers) {
+    for (const { scheme, imageDataLocked, opacity, isVisible, id } of projectJson.layers) {
       if (scheme != "aes-gcm-pbkdf2-v1") {
         recoverableErrors.push("Unsuported scheme: " + scheme);
         continue;
       }
 
       const layer = new Layer(imageDataLocked.width, imageDataLocked.height);
+      layer.id = id;
+      layer.isVisible = isVisible;
+
       if (!metSize) {
-        rkgk.resize(layer.renderer.width, layer.renderer.height);
+        rkgk.resize(layer.renderer.canvas.width, layer.renderer.canvas.height);
         metSize = true;
       }
 

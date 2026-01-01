@@ -65,11 +65,11 @@ export class FloatingWindow {
 
     const okBtn = document.createElement("button");
     okBtn.textContent = "Ok";
-    okBtn.onclick = () => this.#close(true);
+    okBtn.onclick = () => this.close(true);
 
     const cancelBtn = document.createElement("button");
     cancelBtn.textContent = "Cancel";
-    cancelBtn.onclick = () => this.#close(false);
+    cancelBtn.onclick = () => this.close(false);
 
     this.footer.appendChild(okBtn);
     if (showCancel) {
@@ -144,7 +144,7 @@ export class FloatingWindow {
     });
   }
 
-  #close(ok) {
+  close(ok) {
     this.el.remove();
     this.onClose?.(ok);
     uniqueWindows.delete(this.title);
@@ -343,6 +343,8 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
       } catch (err) {
         console.error("Failed to export project:", err);
         errorWindow(err + "");
+      } finally {
+        win.close(true);
       }
     };
 
@@ -361,9 +363,12 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
           const rawData = await file.text();
           const serializer = new Serializer(keyInput.value);
           const recovErrors = await serializer.from(rkgk, rawData);
-          errors = recovErrors.map((error) => typeof error == "string" ? error : (error?.toString() ?? error));
+          errors = recovErrors.map((error) =>
+            typeof error == "string" ? error : (error?.toString() ?? error)
+          );
 
           requestUIReload();
+          win.close(true);
         } catch (err) {
           console.error("Failed to load project:", err);
           errors = [typeof err == "string" ? err : (err?.toString() ?? err)];
@@ -371,8 +376,8 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
           if (errors.length > 0) {
             errorWindow(
               `Failed loading project "${file.name}":`,
-              errors
-            )
+              errors,
+            );
           }
         }
       });
