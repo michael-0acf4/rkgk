@@ -182,6 +182,12 @@ export function helpWindow() {
 }
 
 export function errorWindow(mainError = "Unknown error", details = []) {
+  const stringifyError = (err) => {
+    return typeof err == "string"
+      ? err
+      : (err?.message ?? err?.toString() ?? err);
+  };
+
   const shortcuts = new FloatingWindow(document.body, {
     title: "An error has occured",
     width: 420,
@@ -192,10 +198,12 @@ export function errorWindow(mainError = "Unknown error", details = []) {
   shortcuts.setContent((root) => {
     const txt = document.createElement("div");
     txt.innerHTML = `
-      <p>${mainError}</p>
-      <div>
-        ${details.map((detail) => `<p> - ${detail} </p>`).join("")}
-      </div>
+      <p><b>${stringifyError(mainError)}</b></p>
+      <p>
+        ${
+      details.map((detail) => `<p> - ${stringifyError(detail)} </p>`).join("")
+    }
+      </p>
     `;
     root.appendChild(txt);
   });
@@ -248,7 +256,7 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
 
       <!-- Export meta -->
       <div style="display:flex; flex-direction:column; gap:4px;">
-        <label for="key_input">Key (optional)</label>
+        <label for="key_input">Layer lock key (optional)</label>
         <input
           id="key_input"
           type="password"
@@ -312,13 +320,17 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
       }
     };
 
+    const getFilename = (placeholder = "rkgk_untitled") => {
+      return rkgk.title || titleInput.value || placeholder;
+    };
+
     root.querySelector("#download_btn").onclick = async () => {
       const { drawable: img } = await rkgk.getComposedImage(
         !!transparentInput.checked,
       );
       const a = document.createElement("a");
       a.href = img.src;
-      a.download = !rkgk.title ? "rkgk_untitled" : rkgk.title;
+      a.download = getFilename();
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -334,7 +346,7 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `${rkgk.title || "project"}.rkgk`;
+        a.download = `${getFilename()}.rkgk`;
         document.body.appendChild(a);
         a.click();
 
@@ -360,18 +372,13 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
 
         let errors = [];
         try {
-          const rawData = await file.text();
           const serializer = new Serializer(keyInput.value);
-          const recovErrors = await serializer.from(rkgk, rawData);
-          errors = recovErrors.map((error) =>
-            typeof error == "string" ? error : (error?.toString() ?? error)
-          );
-
+          errors = await serializer.from(rkgk, file);
           requestUIReload();
           win.close(true);
         } catch (err) {
           console.error("Failed to load project:", err);
-          errors = [typeof err == "string" ? err : (err?.toString() ?? err)];
+          errors = [err];
         } finally {
           if (errors.length > 0) {
             errorWindow(

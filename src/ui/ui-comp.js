@@ -98,10 +98,12 @@ export class LayerMenu extends VerticalMenu {
     this.addBtn.className = "button";
     this.addBtn.textContent = "+ Layer";
     this.addBtn.onclick = () => {
-      const newLayer = this.rkgk.addLayer();
-      this.rkgk.currentLayerId = newLayer.id;
+      const currentLayerId = this.rkgk.addLayer();
+      this.rkgk.currentLayerId = currentLayerId;
       this.update();
-      updateLayerThumbnail(newLayer).catch(console.error);
+      updateLayerThumbnail(this.rkgk.getLayer(currentLayerId)).catch(
+        console.error,
+      );
     };
 
     this.opacityInput = document.createElement("input");
@@ -127,26 +129,30 @@ export class LayerMenu extends VerticalMenu {
     const layers = this.rkgk.layers;
     const list = this.layerList;
 
-    const alive = new Set(layers.map((l) => l.id));
+    const aliveIds = new Set(layers.map((l) => l.id));
     for (const [id, row] of this.state.layerRows) {
-      if (!alive.has(id)) {
+      if (!aliveIds.has(id)) {
         row.remove();
         this.state.layerRows.delete(id);
       }
     }
 
+    const fragment = document.createDocumentFragment();
     const reversedLayers = [...layers].reverse();
-    reversedLayers.forEach((layer, uiIndex) => {
+    reversedLayers.forEach((layer) => {
       let row = this.state.layerRows.get(layer.id);
       if (!row) {
         row = this.createRow(layer);
         this.state.layerRows.set(layer.id, row);
       }
-
-      if (list.children[uiIndex] !== row) {
-        list.insertBefore(row, list.children[uiIndex] || null);
-      }
+      fragment.appendChild(row);
     });
+
+    // Fixes NotFoundError: Failed to execute 'insertBefore'
+    // Single-shot DOM update
+    // This is much faster and prevents Chrome Autofill from choking
+    // because it's one atomic operation
+    list.replaceChildren(fragment);
 
     const activeLayer = layers.find((l) => l.id === this.rkgk.currentLayerId);
     if (activeLayer) this.opacityInput.value = activeLayer.opacity ?? 1;
@@ -234,10 +240,13 @@ export class BrushMenu extends VerticalMenu {
       ),
     };
 
+    const mainLabel = document.createElement("span");
+    mainLabel.innerHTML = "<b>Rkgk UI</b>";
+
     const brushLabel = document.createElement("span");
     const updateActiveBrushLabel = () => {
       const brush = brushes.find((b) => b.id === this.state.activeBrushId);
-      brushLabel.textContent = brush?.name ?? "";
+      brushLabel.innerHTML = `<b>${brush?.name ?? ""}</b>`;
     };
 
     const list = document.createElement("div");
@@ -266,7 +275,7 @@ export class BrushMenu extends VerticalMenu {
     size.type = "range";
     size.className = "slider";
     size.min = 2;
-    size.max = 50;
+    size.max = 300;
     size.oninput = () => {
       this.activeSettings.size = +size.value;
       this.emitChange();
@@ -292,8 +301,9 @@ export class BrushMenu extends VerticalMenu {
 
     this.controls = { size, hardness, color };
 
-    this.add(brushLabel);
+    this.add(mainLabel);
     this.add(list);
+    this.add(brushLabel);
     this.add(size);
     this.add(hardness);
     this.add(color);
@@ -643,5 +653,5 @@ export async function updateBrushThumbnail(brush) {
   const elId = getBrushContainerId(brush);
   const div = document.getElementById(elId);
 
-  await replaceThumbSrc(div, await brush.getThumbnail(100, 40));
+  await replaceThumbSrc(div, await brush.getThumbnail(120, 40));
 }

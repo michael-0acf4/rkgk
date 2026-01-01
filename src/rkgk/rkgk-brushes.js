@@ -58,6 +58,24 @@ export function texProceduralSoft(size) {
 /**
  * @param {number} size
  */
+export function texProceduralHard(size) {
+  return async (color, hardness) => {
+    const canvas = new OffscreenCanvas(size, size);
+    const ctx = canvas.getContext("2d");
+    ctx.globalAlpha = hardness ?? ctx.globalAlpha;
+
+    ctx.beginPath();
+    ctx.fillStyle = color;
+    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    return await canvasToImage(canvas);
+  };
+}
+
+/**
+ * @param {number} size
+ */
 export function texProceduralMarker(size) {
   return async (color, hardness) => {
     const canvas = new OffscreenCanvas(size, size);
@@ -135,6 +153,15 @@ export function stdBrushes() {
       textureLoader: texProceduralSoft(10),
       angleTransform: (_t) => Math.random() * 2 * Math.PI,
       squashTransform: (ar, _tilt) => ar,
+      pressureCurve: (p) => Math.sqrt(p),
+    }),
+    new Brush({
+      name: "Hard Brush",
+      spacing: 0.1,
+      size: 10,
+      textureLoader: texProceduralHard(10),
+      angleTransform: (t) => t,
+      squashTransform: (ar, tilt) => (1 + 2 * tilt) * ar,
       pressureCurve: (p) => Math.sqrt(p),
     }),
     new Brush({

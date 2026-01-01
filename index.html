@@ -18,7 +18,7 @@
         --thumb-layer-height: 86px;
         --thumb-brush-width: 120px;
         --thumb-brush-height: 40px;
-        --thumb-active-color: #d0ebff;
+        --thumb-active-color: rgba(45, 149, 187, 0.446);
         --thumb-active-border-color: #339af0;
         --floating-menu-background-color: rgba(45, 149, 187, 0.884);
         --floating-menu-control-color: rgba(35, 102, 126, 0.631);
@@ -319,6 +319,13 @@
         color: rgba(255, 255, 255, 0.5);
         font-style: italic;
       }
+
+      .no-select {
+        user-select: none; /* standard */
+        -webkit-user-select: none; /* Safari/Chrome */
+        -moz-user-select: none; /* Firefox */
+        -ms-user-select: none; /* IE/Edge */
+      }
     </style>
   </head>
 
@@ -329,8 +336,8 @@
           <canvas id="canvas" width="1000" height="1000"></canvas>
         </div>
       </div>
-      <div id="brushMenu" class="vmenu left"></div>
-      <div id="layerMenu" class="vmenu right"></div>
+      <div id="brushMenu" class="vmenu left no-select"></div>
+      <div id="layerMenu" class="vmenu right no-select"></div>
     </div>
 
     <script type="module" src="src/index.js"></script>

@@ -62,6 +62,15 @@ function getPointerData(rkgk, e) {
  * @param {boolean?} transparent
  */
 export async function canvasToImage(canvas, transparent = true) {
+  if (!transparent) {
+    const off = new OffscreenCanvas(canvas.width, canvas.height);
+    const ctx = off.getContext("2d");
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, off.width, off.height);
+    ctx.drawImage(canvas, 0, 0);
+    canvas = off;
+  }
+
   const type = transparent ? "image/png" : "image/jpeg";
 
   let url;
@@ -638,28 +647,6 @@ async function deriveKey(password, salt) {
   );
 }
 
-export function downloadImageData(imageData, filename = "debug.png") {
-  // Create a temporary canvas to draw the ImageData
-  const canvas = document.createElement("canvas");
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  const ctx = canvas.getContext("2d");
-  ctx.putImageData(imageData, 0, 0);
-
-  canvas.toBlob((blob) => {
-    if (!blob) return;
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }, "image/png");
-}
-
 /**
  * @param {ImageData} imageData
  * @param {string} password
@@ -711,103 +698,237 @@ async function unlockImageData(payload, password) {
 
 export class Serializer {
   /**
-   * @param {string?} userPassword
+   * @param {string | null | undefined} userPassword
    */
   constructor(userPassword) {
-    this.userPassword = userPassword;
-  }
-
-  static bufferToJSON(buffer) {
-    return Array.from(new Uint8Array(buffer));
-  }
-
-  static bufferFromJSON(arr) {
-    return new Uint8Array(arr).buffer;
+    this.userPassword = userPassword || "";
   }
 
   /**
+   * RKGK Binary Project Specification (Version 2)
+   *
+   * I'd consider this a very pragmatic solution, technically a mini-file system.
+   *
+   * A JSON header and a binary tail (refered within the JSON)
+   *
+   * A hybrid binary/JSON format for storing layered canvas projects with
+   * AES-GCM encryption.
+   * * FILE STRUCTURE:
+   * ```
+   * +--------+-----------+-------------------+----------------------------+
+   * | Offset | Size (B)  | Name              | Description                |
+   * +--------+-----------+-------------------+----------------------------+
+   * | 0      | 4         | Magic Number      | Constant ASCII "RKGK"      |
+   * | 4      | 4         | JSON Length       | Uint32 (LE) size of Header |
+   * | 8      | N         | JSON Header       | UTF-8 Encoded Metadata     |
+   * | 8 + N  | Variable  | Binary Payload    | Concatenated Encrypted     |
+   * |        |           |                   | Image Data Blobs           |
+   * +--------+-----------+-------------------+----------------------------+
+   * ```
+   *
+   * * JSON HEADER SCHEMA:
+   * ```
+   * {
+   *  "title": string,              // Project name
+   *  "currentLayerId": string,     // ID of the active layer
+   *  "encryption": {
+   *    "scheme": string            // e.g., "aes-gcm-pbkdf2-v1"
+   *   },
+   *  "layers": [                   // Array of layer metadata
+   *  {
+   *    "id": string,
+   *    "isVisible": boolean,
+   *    "opacity": number,
+   *    "width": number,
+   *    "height": number,
+   *    "iv": number[],           // 12-byte Initialization Vector
+   *    "salt": number[],         // 16-byte PBKDF2 Salt
+   *    "offset": number,         // Byte offset relative to Binary Payload start
+   *    "length": number          // Size of encrypted buffer in bytes
+   *  }
+   * ],
+   * "finalImage": {               // Flattened preview metadata
+   *   "offset": number,
+   *   "length": number,
+   *   ...cryptoMeta
+   *  }
+   * }
+   * ```
+   * 1. Key Derivation: PBKDF2 (SHA-256, 150k iterations)
+   * 2. Algorithm: AES-GCM (256-bit key)
+   * 3. Salt: Unique per layer, which is mixed with an optional APP_SIGNATURE at derivation time
+   *
    * @param {RkgkEngine} rkgk
    */
   async serialize(rkgk) {
-    const layers = await Promise.all(
-      rkgk.layers.map(async (layer) => {
-        const locked = await lockImageData(
-          layer.getImageDataBuffer(),
-          this.userPassword,
-        );
+    const binaryParts = [];
+    let currentOffset = 0;
 
-        return {
-          scheme: locked.scheme,
-          imageDataLocked: {
-            width: locked.width,
-            height: locked.height,
-            iv: Array.from(locked.iv),
-            salt: Array.from(locked.salt),
-            buffer: Serializer.bufferToJSON(locked.buffer),
-          },
-          isVisible: layer.isVisible,
-          id: layer.id,
-          opacity: layer.opacity,
-        };
-      }),
+    // Layers and collect binary blobs (private)
+    const layerMeta = await Promise.all(rkgk.layers.map(async (layer) => {
+      const locked = await lockImageData(
+        layer.getImageDataBuffer(),
+        this.userPassword,
+      );
+      const buf = new Uint8Array(locked.buffer);
+
+      const meta = {
+        id: layer.id,
+        isVisible: layer.isVisible,
+        opacity: layer.opacity,
+        width: locked.width,
+        height: locked.height,
+        iv: Array.from(locked.iv),
+        salt: Array.from(locked.salt),
+        offset: currentOffset,
+        length: buf.byteLength,
+      };
+
+      binaryParts.push(buf);
+      currentOffset += buf.byteLength;
+      return meta;
+    }));
+
+    // Final composed image (public)
+    // TBD, but I am settling on this,
+    // fundamentally I still want to sign the data but still allow people
+    // to view even encrypted work
+    // Having a small perm mask for the v3 would be great! (view, edit)
+    const finalLocked = await lockImageData(
+      rkgk.getComposedImageData(),
+      APP_SIGNATURE,
     );
+    const finalBuf = new Uint8Array(finalLocked.buffer);
+    const finalMeta = {
+      width: finalLocked.width,
+      height: finalLocked.height,
+      iv: Array.from(finalLocked.iv),
+      salt: Array.from(finalLocked.salt),
+      offset: currentOffset,
+      length: finalBuf.byteLength,
+    };
+    binaryParts.push(finalBuf);
 
-    return JSON.stringify({
-      version: 1,
+    // Best of both words: JSON Header
+    const jsonPayload = {
+      version: 2,
       title: rkgk.title,
-      finalImage: rkgk.getComposedImageData(),
       currentLayerId: rkgk.currentLayerId,
-      layers,
-    });
+      encryption: { scheme: "aes-gcm-pbkdf2-v1" },
+      layers: layerMeta,
+      finalImage: finalMeta,
+    };
+
+    const jsonBytes = new TextEncoder().encode(JSON.stringify(jsonPayload));
+
+    // Layout: MAGIC(4) | JSON_LEN(4) | JSON | BINARY_BLOBS
+    const totalHeaderSize = 4 + 4 + jsonBytes.byteLength;
+    console.debug("Building", totalHeaderSize);
+    const finalBlob = new Blob([
+      new TextEncoder().encode("RKGK"),
+      new Uint32Array([jsonBytes.byteLength]), // ! Little Endian
+      jsonBytes,
+      ...binaryParts, // ALL encrypted images
+    ], { type: "application/octet-stream" });
+
+    return finalBlob;
   }
 
   /**
    * @param {RkgkEngine} rkgk
-   * @param {string} rawProjectData
+   * @param {Blob} blob
    */
-  async from(rkgk, rawProjectData) {
-    const projectJson = JSON.parse(rawProjectData);
-    rkgk.title = projectJson.title ?? "rkgk_import_untitled";
-    rkgk.layers = [];
-    rkgk.currentLayerId = projectJson.currentLayerId;
+  async from(rkgk, blob) {
+    const arrayBuffer = await blob.arrayBuffer();
+    const view = new DataView(arrayBuffer);
 
-    let metSize = false;
+    // Header
+    const magic = new TextDecoder().decode(arrayBuffer.slice(0, 4));
+    if (magic !== "RKGK") throw new Error("Not a valid RKGK file");
+
+    // JSON Header
+    const jsonLen = view.getUint32(4, true);
+    const jsonStart = 8;
+    const jsonEnd = jsonStart + jsonLen;
+    const jsonData = new TextDecoder().decode(
+      arrayBuffer.slice(jsonStart, jsonEnd),
+    );
+    const meta = JSON.parse(jsonData);
+
+    // Update engine
+    rkgk.title = meta.title ?? "untitled";
+    rkgk.layers = [];
+    rkgk.currentLayerId = meta.currentLayerId;
+    const binaryBaseOffset = jsonEnd;
 
     const recoverableErrors = [];
-    for (const { scheme, imageDataLocked, opacity, isVisible, id } of projectJson.layers) {
-      if (scheme != "aes-gcm-pbkdf2-v1") {
-        recoverableErrors.push("Unsuported scheme: " + scheme);
-        continue;
-      }
 
-      const layer = new Layer(imageDataLocked.width, imageDataLocked.height);
-      layer.id = id;
-      layer.isVisible = isVisible;
+    const getPayload = (l) => {
+      const encryptedBuffer = arrayBuffer.slice(
+        binaryBaseOffset + l.offset,
+        binaryBaseOffset + l.offset + l.length,
+      );
 
-      if (!metSize) {
-        rkgk.resize(layer.renderer.canvas.width, layer.renderer.canvas.height);
-        metSize = true;
-      }
+      return {
+        scheme: meta.encryption.scheme,
+        width: l.width,
+        height: l.height,
+        iv: new Uint8Array(l.iv),
+        salt: new Uint8Array(l.salt),
+        buffer: encryptedBuffer,
+      };
+    };
 
+    // Decrypt Layers
+    for (const l of meta.layers) {
       try {
-        const locked = {
-          scheme,
-          ...imageDataLocked,
-          buffer: Serializer.bufferFromJSON(imageDataLocked.buffer),
-          iv: new Uint8Array(imageDataLocked.iv),
-          salt: new Uint8Array(imageDataLocked.salt),
-        };
+        const payload = getPayload(l);
+        const imgData = await unlockImageData(payload, this.userPassword);
+        const layer = new Layer(imgData.width, imgData.height);
 
-        const imgData = await unlockImageData(locked, this.userPassword);
-        layer.history.push(imgData);
+        layer.id = l.id;
+        layer.isVisible = l.isVisible;
+        layer.opacity = l.opacity;
         layer.renderer.context.putImageData(imgData, 0, 0);
         layer.snapshot();
-        layer.opacity = opacity;
+
+        if (rkgk.layers.length === 0) {
+          rkgk.resize(imgData.width, imgData.height);
+        }
         rkgk.layers.push(layer);
       } catch (err) {
+        recoverableErrors.push(
+          new Error(
+            `[Layer: ${l?.id?.substring(0, 20)}..] Decryption failed: ${
+              err?.toString() || "unknown"
+            }`,
+            { cause: err },
+          ),
+        );
+      }
+    }
+
+    if (recoverableErrors.length > 0) {
+      try {
+        const payload = getPayload(meta.finalImage);
+        const imgData = await unlockImageData(payload, APP_SIGNATURE);
+        rkgk.layers = [];
+        rkgk.resize(imgData.width, imgData.height);
+        rkgk.currentLayerId = rkgk.addLayer();
+        const placeholderLayer = rkgk.getLayer(rkgk.currentLayerId);
+
+        placeholderLayer.renderer.context.putImageData(imgData, 0, 0);
+        recoverableErrors.push(new Error("WARN: will load overview instead"));
+      } catch (err) {
+        rkgk.currentLayerId = rkgk.addLayer();
         console.error(err);
         recoverableErrors.push(
-          err,
+          new Error(
+            `Composed image decryption failed, was this generated by another App perhaps?: ${
+              err?.toString() || "unknown"
+            }`,
+            { cause: err },
+          ),
         );
       }
     }
