@@ -1,3 +1,5 @@
+import { Serializer } from "../rkgk/rkgk.js";
+
 const uniqueWindows = new Set();
 
 export class FloatingWindow {
@@ -179,7 +181,27 @@ export function helpWindow() {
   });
 }
 
-export function projectOptionsWindow(rkgk) {
+export function errorWindow(mainError = "Unknown error", details = []) {
+  const shortcuts = new FloatingWindow(document.body, {
+    title: "An error has occured",
+    width: 420,
+    showCancel: false,
+    makeUnique: false,
+  });
+
+  shortcuts.setContent((root) => {
+    const txt = document.createElement("div");
+    txt.innerHTML = `
+      <p>${mainError}</p>
+      <div>
+        ${details.map((detail) => `<p> - ${detail} </p>`).join("")}
+      </div>
+    `;
+    root.appendChild(txt);
+  });
+}
+
+export function projectOptionsWindow(rkgk, requestUIReload) {
   const win = new FloatingWindow(document.body, {
     title: "Project options",
     width: 400,
@@ -250,6 +272,7 @@ export function projectOptionsWindow(rkgk) {
     const heightInput = root.querySelector("#height_input");
     const lockARInput = root.querySelector("#lock_ar");
     const transparentInput = root.querySelector("#transparent");
+    const keyInput = root.querySelector("#key_input");
 
     titleInput.oninput = () => {
       rkgk.title = titleInput.value;
@@ -293,7 +316,6 @@ export function projectOptionsWindow(rkgk) {
       const { drawable: img } = await rkgk.getComposedImage(
         !!transparentInput.checked,
       );
-      console.log(img.src);
       const a = document.createElement("a");
       a.href = img.src;
       a.download = !rkgk.title ? "rkgk_untitled" : rkgk.title;
@@ -302,12 +324,62 @@ export function projectOptionsWindow(rkgk) {
       a.remove();
     };
 
-    root.querySelector("#export_btn").onclick = () => {
-      alert("Export project triggered!");
+    root.querySelector("#export_btn").onclick = async () => {
+      try {
+        console.log(keyInput, keyInput.value);
+        const serializer = new Serializer(keyInput.value);
+        const projectData = await serializer.serialize(rkgk);
+
+        const blob = new Blob([projectData], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${rkgk.title || "project"}.rkgk`;
+        document.body.appendChild(a);
+        a.click();
+
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error("Failed to export project:", err);
+        errorWindow(err + "");
+      }
     };
 
     root.querySelector("#load_btn").onclick = () => {
-      alert("Load project triggered!");
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".rkgk";
+      input.style.display = "none";
+
+      input.addEventListener("change", async () => {
+        const file = input.files?.[0];
+        if (!file) return;
+
+        let errors = [];
+        try {
+          const rawData = await file.text();
+          const serializer = new Serializer(keyInput.value);
+          const recovErrors = await serializer.from(rkgk, rawData);
+          errors = recovErrors.map((error) => typeof error == "string" ? error : (error?.toString() ?? error));
+
+          requestUIReload();
+        } catch (err) {
+          console.error("Failed to load project:", err);
+          errors = [typeof err == "string" ? err : (err?.toString() ?? err)];
+        } finally {
+          if (errors.length > 0) {
+            errorWindow(
+              `Failed loading project "${file.name}":`,
+              errors
+            )
+          }
+        }
+      });
+
+      document.body.appendChild(input);
+      input.click();
+      input.remove();
     };
   });
 }

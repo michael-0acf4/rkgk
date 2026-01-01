@@ -55,13 +55,23 @@ async function main() {
         rkgk.historyTravel(direction);
       },
       onPan: ({ x, y }) => {},
+      onRequestUIReload: () => {
+        console.warn("reload requested");
+        reloadProject();
+      },
     },
   );
 
-  new LayerMenu(
+  const layerMenu = new LayerMenu(
     document.getElementById("layerMenu"),
     { rkgk },
   );
+
+  function reloadProject() {
+    layerMenu.update();
+    Promise.all(rkgk.layers.map(updateLayerThumbnail))
+      .catch(console.error);
+  }
 
   function draw() {
     rkgk.pollState();

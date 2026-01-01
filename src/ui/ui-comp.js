@@ -334,12 +334,13 @@ export class BrushMenu extends VerticalMenu {
 }
 
 export class CanvasViewport {
-  constructor({ canvas, rkgk }, { onZoom, onPan, onRedo }) {
+  constructor({ canvas, rkgk }, { onZoom, onPan, onRedo, onRequestUIReload }) {
     this.canvas = canvas;
     this.rkgk = rkgk;
     this.onZoom = onZoom;
     this.onPan = onPan;
     this.onRedo = onRedo;
+    this.onRequestUIReload = onRequestUIReload;
 
     this.state = { scale: 1, x: 0, y: 0 };
     this.dragging = false;
@@ -386,7 +387,7 @@ export class CanvasViewport {
     project.textContent = "Project";
     project.title = "Project options";
     project.onclick = (e) => {
-      projectOptionsWindow(this.rkgk);
+      projectOptionsWindow(this.rkgk, this.onRequestUIReload);
     };
 
     const helpBtn = document.createElement("button");
@@ -513,30 +514,32 @@ export class CanvasViewport {
   }
 }
 
+async function replaceThumbSrc(div, thumb) {
+  if (!div) return;
+
+  let imgEl = div.querySelector("img");
+  if (!imgEl) {
+    imgEl = document.createElement("img");
+    imgEl.draggable = false;
+    div.appendChild(imgEl);
+  }
+
+  // TODO:
+  // Is it really GC'd?
+  imgEl.src = thumb.drawable.src;
+  thumb.drawable = null;
+}
+
 export async function updateLayerThumbnail(layer) {
   const elId = getLayerContainerId(layer);
   const div = document.getElementById(elId);
-  if (!div) {
-    return;
-  }
 
-  const img = await layer.getThumbnail(64, 86);
-  img.drawable.draggable = false;
-
-  div.innerHTML = "";
-  div.appendChild(img.drawable);
+  await replaceThumbSrc(div, await layer.getThumbnail(64, 86));
 }
 
 export async function updateBrushThumbnail(brush) {
   const elId = getBrushContainerId(brush);
-
   const div = document.getElementById(elId);
-  if (!div) {
-    return;
-  }
 
-  const img = await brush.getThumbnail(100, 40);
-  img.drawable.draggable = false;
-  div.innerHTML = "";
-  div.appendChild(img.drawable);
+  await replaceThumbSrc(div, await brush.getThumbnail(100, 40));
 }

@@ -6,6 +6,12 @@
 /** @typedef {{ drawable: HTMLImageElement, width: number, height: number }} BrushTexture */
 /** @typedef {{ offsetX: number, offsetY: number, scale: number }} ViewTransformation */
 
+/**
+ * WARNING!
+ * APP_SIGNATURE does not protecc, this script is PUBLIC, so it is merly just a provenance stamp for hints.
+ */
+const APP_SIGNATURE = "rkgk-v1";
+
 const MAX_LAYER_HISTORY = 20;
 
 /**
@@ -457,6 +463,11 @@ export class RkgkEngine {
     return await canvasToImage(this.renderer.canvas, transparent);
   }
 
+  getComposedImageData() {
+    const { canvas, context } = this.renderer;
+    return context.getImageData(0, 0, canvas.width, canvas.height);
+  }
+
   drawDebugNumber() {
     const c = () => Math.floor(Math.random() * 1000) % 255;
     this.layers.forEach((layer, i) => {
@@ -595,5 +606,206 @@ export class RkgkEngine {
 
     // No right click
     canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+}
+
+/**
+ * @param {string} password
+ * @param {string} salt
+ * @returns
+ */
+async function deriveKey(password, salt) {
+  const enc = new TextEncoder();
+  const baseKey = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(password),
+    "PBKDF2",
+    false,
+    ["deriveKey"],
+  );
+
+  return crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt: new Uint8Array([...salt, ...enc.encode(APP_SIGNATURE)]),
+      iterations: 150_000,
+      hash: "SHA-256",
+    },
+    baseKey,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"],
+  );
+}
+
+export function downloadImageData(imageData, filename = "debug.png") {
+  // Create a temporary canvas to draw the ImageData
+  const canvas = document.createElement("canvas");
+  canvas.width = imageData.width;
+  canvas.height = imageData.height;
+  const ctx = canvas.getContext("2d");
+  ctx.putImageData(imageData, 0, 0);
+
+  canvas.toBlob((blob) => {
+    if (!blob) return;
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, "image/png");
+}
+
+/**
+ * @param {ImageData} imageData
+ * @param {string} password
+ */
+async function lockImageData(imageData, password) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+
+  const key = await deriveKey(password, salt);
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    imageData.data.buffer,
+  );
+
+  return {
+    scheme: "aes-gcm-pbkdf2-v1",
+    width: imageData.width,
+    height: imageData.height,
+    buffer: ciphertext,
+    iv,
+    salt,
+  };
+}
+
+/**
+ * @param {payload} unknown
+ * @param {string} password
+ */
+async function unlockImageData(payload, password) {
+  switch (payload.scheme) {
+    case "aes-gcm-pbkdf2-v1": {
+      const key = await deriveKey(password, payload.salt);
+      const plaintext = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: payload.iv },
+        key,
+        payload.buffer,
+      );
+      return new ImageData(
+        new Uint8ClampedArray(plaintext),
+        payload.width,
+        payload.height,
+      );
+    }
+    default:
+      throw new Error("Unknown encryption scheme: " + payload.scheme);
+  }
+}
+
+export class Serializer {
+  /**
+   * @param {string?} userPassword
+   */
+  constructor(userPassword) {
+    this.userPassword = userPassword;
+  }
+
+  static bufferToJSON(buffer) {
+    return Array.from(new Uint8Array(buffer));
+  }
+
+  static bufferFromJSON(arr) {
+    return new Uint8Array(arr).buffer;
+  }
+
+  /**
+   * @param {RkgkEngine} rkgk
+   */
+  async serialize(rkgk) {
+    const layers = await Promise.all(
+      rkgk.layers.map(async (layer) => {
+        const locked = await lockImageData(
+          layer.getImageDataBuffer(),
+          this.userPassword,
+        );
+
+        return {
+          scheme: locked.scheme,
+          imageDataLocked: {
+            width: locked.width,
+            height: locked.height,
+            iv: Array.from(locked.iv),
+            salt: Array.from(locked.salt),
+            buffer: Serializer.bufferToJSON(locked.buffer),
+          },
+          opacity: layer.opacity,
+        };
+      }),
+    );
+
+    return JSON.stringify({
+      version: 1,
+      title: rkgk.title,
+      finalImage: rkgk.getComposedImageData(),
+      layers,
+    });
+  }
+
+  /**
+   * @param {RkgkEngine} rkgk
+   * @param {string} rawProjectData
+   */
+  async from(rkgk, rawProjectData) {
+    const projectJson = JSON.parse(rawProjectData);
+    rkgk.title = projectJson.title ?? "rkgk_import_untitled";
+    rkgk.layers = [];
+
+    let metSize = false;
+
+    const recoverableErrors = [];
+    console.log(projectJson.layers);
+    for (const { scheme, imageDataLocked, opacity } of projectJson.layers) {
+      if (scheme != "aes-gcm-pbkdf2-v1") {
+        recoverableErrors.push("Unsuported scheme: " + scheme);
+        continue;
+      }
+
+      const layer = new Layer(imageDataLocked.width, imageDataLocked.height);
+      if (!metSize) {
+        rkgk.resize(layer.renderer.width, layer.renderer.height);
+        metSize = true;
+      }
+
+      try {
+        const locked = {
+          scheme,
+          ...imageDataLocked,
+          buffer: Serializer.bufferFromJSON(imageDataLocked.buffer),
+          iv: new Uint8Array(imageDataLocked.iv),
+          salt: new Uint8Array(imageDataLocked.salt),
+        };
+
+        const imgData = await unlockImageData(locked, this.userPassword);
+        layer.history.push(imgData);
+        layer.renderer.context.putImageData(imgData, 0, 0);
+        layer.snapshot();
+        layer.opacity = opacity;
+        rkgk.layers.push(layer);
+      } catch (err) {
+        console.error(err);
+        recoverableErrors.push(
+          err,
+        );
+      }
+    }
+
+    return recoverableErrors;
   }
 }
