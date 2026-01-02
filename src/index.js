@@ -1,4 +1,4 @@
-import { RkgkEngine } from "./rkgk/rkgk.js";
+import { Brush, RkgkEngine } from "./rkgk/rkgk.js";
 import { stdBrushes } from "./rkgk/rkgk-brushes.js";
 import {
   BrushMenu,
@@ -8,6 +8,7 @@ import {
   updateLayerThumbnail,
 } from "./ui/ui-comp.js";
 import { flashElement, FloatingWindow } from "./ui/ui-window.js";
+import { loadTemporaryState, persistTemporaryState } from "./ui/ui-persist.js";
 
 const canvas = document.getElementById("canvas");
 const rkgk = new RkgkEngine(canvas);
@@ -17,10 +18,13 @@ rkgk.setupDOMEvents({
   ],
 }); // !
 const brushes = stdBrushes();
-// rkgk.currentLayerId = rkgk.addLayer();
-// rkgk.currentLayerId = rkgk.addLayer();
-// rkgk.currentLayerId = rkgk.addLayer();
+
 rkgk.currentLayerId = rkgk.addLayer();
+// rkgk.currentLayerId = rkgk.addLayer();
+// rkgk.currentLayerId = rkgk.addLayer();
+// rkgk.currentLayerId = rkgk.addLayer();
+// rkgk.drawDebugNumber();
+
 rkgk.addListeners({
   onDrawingInvisbleLayer: () => {
     console.warn("drawing on an invisble layers");
@@ -28,13 +32,23 @@ rkgk.addListeners({
   },
 });
 
-// rkgk.drawDebugNumber();
-
-async function main() {
+/**
+ * @param {Brush[]} brushes
+ */
+async function initBrushes(brushes) {
   for (const brush of brushes) {
     await brush.setFilter("#000000", 1.0);
   }
   rkgk.brush = brushes[0];
+}
+
+async function main() {
+  try {
+    await loadTemporaryState(rkgk, brushes);
+  } catch (err) {
+    console.log(err);
+    await initBrushes(brushes);
+  }
 
   new BrushMenu(
     document.getElementById("brushMenu"),
@@ -88,6 +102,14 @@ async function main() {
       await updateLayerThumbnail(layer);
     }
   }, 1000);
+
+  setInterval(async () => {
+    try {
+      await persistTemporaryState(rkgk, brushes);
+    } catch (err) {
+      console.error(err);
+    }
+  }, 5000);
 
   function reloadProject() {
     layerMenu.update();
