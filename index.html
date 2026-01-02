@@ -19,10 +19,16 @@
         --thumb-brush-width: 120px;
         --thumb-brush-height: 40px;
         --thumb-active-color: rgba(45, 149, 187, 0.446);
-        --thumb-active-border-color: #339af0;
+        --thumb-active-border-color: rgba(35, 102, 126, 0.631);
         --floating-menu-background-color: rgba(45, 149, 187, 0.884);
         --floating-menu-control-color: rgba(35, 102, 126, 0.631);
         --floating-menu-text-color: white;
+      }
+
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: var(--floating-menu-control-color)
+          var(--floating-menu-background-color);
       }
 
       html, body {
@@ -120,8 +126,9 @@
       }
 
       .thumb-brush.active {
-        background: var(--thumb-active-color);
+        /*  background: var(--thumb-active-color);  */
         border-color: var(--thumb-active-border-color);
+        border-width: 4px;
       }
 
       .layer-list {
@@ -149,8 +156,9 @@
       }
 
       .layer-row.active {
-        background: var(--thumb-active-color);
+        /*  background: var(--thumb-active-color);  */
         border-color: var(--thumb-active-border-color);
+        border-width: 4px;
       }
 
       .layer-row:hover {
@@ -216,6 +224,15 @@
         min-width: 40px;
         text-align: center;
         color: var(--floating-menu-text-color);
+      }
+
+      .basic-item-container {
+        cursor: pointer;
+        background: var(--floating-menu-control-color);
+        border: none;
+        color: var(--floating-menu-text-color);
+        padding: 2px 6px;
+        border-radius: 3px;
       }
 
       .floating-window {

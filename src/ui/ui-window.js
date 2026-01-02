@@ -39,6 +39,7 @@ export class FloatingWindow {
     if (height) {
       this.el.style.height = height + "px";
     }
+    this.root.style.overflow = "auto";
     this.el.style.position = "fixed";
 
     const offset = 15; // pixels to offset from cursor
@@ -191,6 +192,7 @@ export function errorWindow(mainError = "Unknown error", details = []) {
   const shortcuts = new FloatingWindow(document.body, {
     title: "An error has occured",
     width: 420,
+    height: 420,
     showCancel: false,
     makeUnique: false,
   });
@@ -207,6 +209,24 @@ export function errorWindow(mainError = "Unknown error", details = []) {
     `;
     root.appendChild(txt);
   });
+}
+
+export function flashElement(el, color, duration = 500) {
+  const originalTransition = el.style.transition;
+  const originalBackground = el.style.backgroundColor;
+
+  el.style.transition = "none";
+  el.style.backgroundColor = color;
+
+  el.offsetHeight; // ! Tricks browser to force reflow so transition applies
+
+  el.style.transition = `background-color ${duration}ms ease-out`;
+  el.style.backgroundColor = originalBackground || "";
+
+  setTimeout(() => {
+    el.style.transition = originalTransition;
+    el.style.backgroundColor = originalBackground || "";
+  }, duration);
 }
 
 export function projectOptionsWindow(rkgk, requestUIReload) {
@@ -285,6 +305,7 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
     titleInput.oninput = () => {
       rkgk.title = titleInput.value;
     };
+    titleInput.value = rkgk.title || titleInput.value;
 
     lockARInput.onchange = () => {
       lockAR = lockARInput.checked;

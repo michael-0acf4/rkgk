@@ -7,7 +7,7 @@ import {
   updateBrushThumbnail,
   updateLayerThumbnail,
 } from "./ui/ui-comp.js";
-import { FloatingWindow } from "./ui/ui-window.js";
+import { flashElement, FloatingWindow } from "./ui/ui-window.js";
 
 const canvas = document.getElementById("canvas");
 const rkgk = new RkgkEngine(canvas);
@@ -21,6 +21,12 @@ const brushes = stdBrushes();
 // rkgk.currentLayerId = rkgk.addLayer();
 // rkgk.currentLayerId = rkgk.addLayer();
 rkgk.currentLayerId = rkgk.addLayer();
+rkgk.addListeners({
+  onDrawingInvisbleLayer: () => {
+    console.warn("drawing on an invisble layers");
+    flashElement(rkgk.renderer.canvas, "rgba(255, 0, 0, 0.2)");
+  },
+});
 
 // rkgk.drawDebugNumber();
 
@@ -129,6 +135,10 @@ async function main() {
     });
   });
   window.addEventListener("dragover", (e) => e.preventDefault());
+  window.addEventListener("beforeunload", function (e) {
+    e.preventDefault();
+    e.returnValue = "";
+  });
 }
 
 main()

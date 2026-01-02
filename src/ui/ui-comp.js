@@ -243,10 +243,42 @@ export class BrushMenu extends VerticalMenu {
     const mainLabel = document.createElement("span");
     mainLabel.innerHTML = "<b>Rkgk UI</b>";
 
-    const brushLabel = document.createElement("span");
+    const size = document.createElement("input");
+    size.type = "range";
+    size.className = "slider";
+    size.min = 2;
+    size.max = 300;
+    size.value = brushes.find((b) => b.id === this.state.activeBrushId).size;
+    size.oninput = () => {
+      this.activeSettings.size = +size.value;
+      updateActiveBrushLabel();
+      this.emitChange();
+    };
+
+    const hardness = document.createElement("input");
+    hardness.type = "range";
+    hardness.className = "slider";
+    hardness.min = 0.2;
+    hardness.max = 1;
+    hardness.step = 0.1;
+    size.value =
+      brushes.find((b) => b.id === this.state.activeBrushId).hardness;
+    hardness.oninput = () => {
+      this.activeSettings.hardness = +hardness.value;
+      updateActiveBrushLabel();
+      this.emitChange();
+    };
+
+    const brushLabel = document.createElement("div");
     const updateActiveBrushLabel = () => {
       const brush = brushes.find((b) => b.id === this.state.activeBrushId);
-      brushLabel.innerHTML = `<b>${brush?.name ?? ""}</b>`;
+      brushLabel.innerHTML = `
+      <div class="basic-item-container">
+        <div><b>${brush?.name ?? ""}</b></div>
+        <div>Size: ${size.value}px</div>
+        <div>Hardness: ${hardness.value}</div>
+      </div>
+      `;
     };
 
     const list = document.createElement("div");
@@ -270,27 +302,6 @@ export class BrushMenu extends VerticalMenu {
 
       list.appendChild(el);
     });
-
-    const size = document.createElement("input");
-    size.type = "range";
-    size.className = "slider";
-    size.min = 2;
-    size.max = 300;
-    size.oninput = () => {
-      this.activeSettings.size = +size.value;
-      this.emitChange();
-    };
-
-    const hardness = document.createElement("input");
-    hardness.type = "range";
-    hardness.className = "slider";
-    hardness.min = 0.2;
-    hardness.max = 1;
-    hardness.step = 0.1;
-    hardness.oninput = () => {
-      this.activeSettings.hardness = +hardness.value;
-      this.emitChange();
-    };
 
     const color = document.createElement("input");
     color.type = "color";
@@ -511,7 +522,10 @@ export class CanvasViewport {
     this.scaleDisplay = document.createElement("span");
     this.scaleDisplay.style.cursor = "pointer";
     this.scaleDisplay.title = "Reset zoom & pan";
-    this.scaleDisplay.onclick = () => this.reset();
+    this.scaleDisplay.onclick = () => {
+      this.reset();
+      this.centerCanvas();
+    };
 
     this.controls.append(
       btn(
@@ -627,19 +641,18 @@ export class CanvasViewport {
 }
 
 async function replaceThumbSrc(div, thumb) {
-  if (!div) return;
+  if (!div || !thumb?.drawable?.src) return;
 
-  let imgEl = div.querySelector("img");
-  if (!imgEl) {
-    imgEl = document.createElement("img");
-    imgEl.draggable = false;
-    div.appendChild(imgEl);
+  let oldImg = div.querySelector("img");
+  if (oldImg) {
+    oldImg.src = "";
+    oldImg.onload = null;
+    oldImg.onerror = null;
+    oldImg.remove();
   }
 
-  // TODO:
-  // Is it really GC'd?
-  imgEl.src = thumb.drawable.src;
-  thumb.drawable = null;
+  thumb.drawable.draggable = false;
+  div.appendChild(thumb.drawable);
 }
 
 export async function updateLayerThumbnail(layer) {

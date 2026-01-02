@@ -515,16 +515,19 @@ export class RkgkEngine {
         const layer = this.getLayer(this.currentLayerId);
         if (
           event.pointerId == state.activePointerId && state.drawing && layer &&
-          state.lastPos &&
-          layer.isVisible
+          state.lastPos
         ) {
-          this.brush.stroke(
-            layer.renderer.context,
-            state.lastPos,
-            event.pointer,
-            // TODO: speed for speed curve
-          );
-          state.lastPos = event.pointer;
+          if (layer.isVisible) {
+            this.brush.stroke(
+              layer.renderer.context,
+              state.lastPos,
+              event.pointer,
+              // TODO: speed for speed curve
+            );
+            state.lastPos = event.pointer;
+          } else {
+            this.onDrawingInvisbleLayer?.();
+          }
         }
       }
     }
@@ -615,6 +618,16 @@ export class RkgkEngine {
 
     // No right click
     canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+
+  addListeners({
+    onDrawingInvisbleLayer,
+  }) {
+    if (typeof onDrawingInvisbleLayer != "function") {
+      throw new Error("onDrawingInvisbleLayer expected a function");
+    }
+
+    this.onDrawingInvisbleLayer = onDrawingInvisbleLayer;
   }
 }
 
@@ -732,7 +745,7 @@ export class Serializer {
    *  "title": string,              // Project name
    *  "currentLayerId": string,     // ID of the active layer
    *  "encryption": {
-   *    "scheme": string            // e.g., "aes-gcm-pbkdf2-v1"
+   *    "scheme": string            // "aes-gcm-pbkdf2-v1"
    *   },
    *  "layers": [                   // Array of layer metadata
    *  {
@@ -790,10 +803,10 @@ export class Serializer {
     }));
 
     // Final composed image (public)
-    // TBD, but I am settling on this,
-    // fundamentally I still want to sign the data but still allow people
-    // to view even encrypted work
-    // Having a small perm mask for the v3 would be great! (view, edit)
+    // Settled: Use Public Provenance (C2PA/Manifest)
+    // This allows the work to remain encrypted/private while
+    // exposing a signed, public "Content Credential" to verify ownership
+    // TODO: Having a small permission mask for the v3 would be great! (view, edit)
     const finalLocked = await lockImageData(
       rkgk.getComposedImageData(),
       APP_SIGNATURE,
