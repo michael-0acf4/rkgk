@@ -7,7 +7,10 @@ import {
   updateBrushThumbnail,
   updateLayerThumbnail,
 } from "./ui/ui-comp.js";
-import { flashElement, FloatingWindow } from "./ui/ui-window.js";
+import {
+  flashElement,
+  referenceWindow,
+} from "./ui/ui-window.js";
 import { loadTemporaryState, persistTemporaryState } from "./ui/ui-persist.js";
 
 const canvas = document.getElementById("canvas");
@@ -46,7 +49,7 @@ async function main() {
   try {
     await loadTemporaryState(rkgk, brushes);
   } catch (err) {
-    console.log(err);
+    console.warn(err);
     await initBrushes(brushes);
   }
 
@@ -131,30 +134,7 @@ async function main() {
     const file = e.dataTransfer.files[0];
     if (!file?.type.startsWith("image/")) return;
 
-    const url = URL.createObjectURL(file);
-    const win = new FloatingWindow(document.body, {
-      title: file.name,
-      width: 400,
-      height: null,
-      x: e.clientX,
-      y: e.clientY,
-      showCancel: false,
-      makeUnique: true,
-    });
-
-    win.setContent((root) => {
-      const img = document.createElement("img");
-      img.src = url;
-      img.style.maxWidth = "100%";
-      img.style.maxHeight = "100%";
-      img.style.display = "block";
-
-      // Disable ability to drag and drop inner images
-      // otherwise we can trigger unwanted accidental dup windows
-      img.draggable = false;
-
-      root.appendChild(img);
-    });
+    referenceWindow(file, e);
   });
   window.addEventListener("dragover", (e) => e.preventDefault());
   window.addEventListener("beforeunload", async (e) => {

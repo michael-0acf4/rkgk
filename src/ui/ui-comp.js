@@ -432,6 +432,7 @@ export class CanvasViewport {
 
     this.onPan?.({ x: 0, y: 0 });
     this.onZoom?.({ scale: 1 });
+    this.centerCanvas();
   }
 
   /* ---------------- lifecycle ---------------- */
@@ -524,7 +525,6 @@ export class CanvasViewport {
     this.scaleDisplay.title = "Reset zoom & pan";
     this.scaleDisplay.onclick = () => {
       this.reset();
-      this.centerCanvas();
     };
 
     this.controls.append(

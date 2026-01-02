@@ -13,17 +13,19 @@ export class FloatingWindow {
       height = null,
       showCancel = true,
       makeUnique = false,
+      buttonLabels = {
+        ok: "Ok",
+        cancel: "Cancel",
+      },
       onClose,
     } = {},
   ) {
     this.title = title;
     if (uniqueWindows.has(this.title)) {
-      console.warn("Window marked as unique");
       this.skip = true;
       return;
     }
     if (makeUnique) {
-      console.log("make unique");
       uniqueWindows.add(this.title);
     }
 
@@ -65,11 +67,11 @@ export class FloatingWindow {
     this.footer.className = "floating-window-footer";
 
     const okBtn = document.createElement("button");
-    okBtn.textContent = "Ok";
+    okBtn.textContent = buttonLabels.ok;
     okBtn.onclick = () => this.close(true);
 
     const cancelBtn = document.createElement("button");
-    cancelBtn.textContent = "Cancel";
+    cancelBtn.textContent = buttonLabels.cancel;
     cancelBtn.onclick = () => this.close(false);
 
     this.footer.appendChild(okBtn);
@@ -171,7 +173,7 @@ export function helpWindow() {
   shortcuts.setContent((root) => {
     const txt = document.createElement("div");
     txt.innerHTML = `
-      <p><b>Pan</b>: Alt+Mouse or Up, Down, Left, Right</p>
+      <p><b>Pan</b>: Alt+Mouse or Alt+↑, ↓, ←, →</p>
       <p><b>Zoom</b>: Alt+Scroll</p>
       <p><b>Reset</b>: Alt+R, or by *clicking* on the zoom value</p>
       <p><b>Undo/Redo</b>: Ctrl+Z/Ctrl+Y</p>
@@ -235,6 +237,10 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
     width: 400,
     makeUnique: true,
     showCancel: false,
+    buttonLabels: {
+      ok: "Quit",
+      cancel: "Cancel",
+    },
   });
 
   win.setContent((root) => {
@@ -414,5 +420,40 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
       input.click();
       input.remove();
     };
+  });
+}
+
+/**
+ * @param {File} file
+//  * @param {DragEvent} position
+ */
+export function referenceWindow(file, position) {
+  const url = URL.createObjectURL(file);
+  const win = new FloatingWindow(document.body, {
+    title: file.name,
+    width: 400,
+    height: null,
+    x: position.clientX,
+    y: position.clientY,
+    showCancel: false,
+    makeUnique: true,
+    buttonLabels: {
+      ok: "Quit",
+      cancel: "Cancel",
+    },
+  });
+
+  win.setContent((root) => {
+    const img = document.createElement("img");
+    img.src = url;
+    img.style.maxWidth = "100%";
+    img.style.maxHeight = "100%";
+    img.style.display = "block";
+
+    // Disable ability to drag and drop inner images
+    // otherwise we can trigger unwanted accidental dup windows
+    img.draggable = false;
+
+    root.appendChild(img);
   });
 }

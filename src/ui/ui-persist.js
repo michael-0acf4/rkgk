@@ -78,7 +78,7 @@ export async function persistTemporaryState(rkgk, brushes) {
     }),
   );
 
-  console.log("Saved to disk");
+  console.warn("Saved to disk", rkgk.title, "brushes", brushes.length);
 }
 
 /**
@@ -99,7 +99,6 @@ export async function loadTemporaryState(rkgk, brushes) {
 
   // brushes
   const settings = JSON.parse(await loadFromDisk(SETTINGS_KEY));
-  console.log(settings);
   if (settings) {
     rkgk.brush = brushes[0];
     for (const brush of brushes) {
