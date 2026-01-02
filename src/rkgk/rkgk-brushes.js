@@ -168,6 +168,7 @@ export function stdBrushes() {
       name: "Eraser",
       spacing: 0.25,
       size: 10,
+      substract: true,
       textureLoader: texEraser(10),
       angleTransform: (_t) => Math.random() * 2 * Math.PI,
       squashTransform: (ar, _tilt) => ar,

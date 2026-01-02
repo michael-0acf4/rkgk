@@ -94,6 +94,7 @@ export class Brush {
     name,
     spacing,
     size,
+    substract = false,
     textureLoader,
     angleTransform,
     squashTransform,
@@ -104,6 +105,7 @@ export class Brush {
     this.texture = null;
     this.spacing = spacing;
     this.size = size;
+    this.substract = substract;
     this.textureLoader = textureLoader;
     this.angleTransform = angleTransform;
     this.squashTransform = squashTransform;
@@ -176,6 +178,9 @@ export class Brush {
     ctx.save();
 
     ctx.globalAlpha = p;
+    if (this.substract) {
+      ctx.globalCompositeOperation = "destination-out";
+    }
 
     ctx.translate(pointer.x, pointer.y);
     ctx.rotate(angle);
