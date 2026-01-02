@@ -109,7 +109,7 @@ async function main() {
     } catch (err) {
       console.error(err);
     }
-  }, 5000);
+  }, 10_000);
 
   function reloadProject() {
     layerMenu.update();
@@ -157,8 +157,13 @@ async function main() {
     });
   });
   window.addEventListener("dragover", (e) => e.preventDefault());
-  window.addEventListener("beforeunload", function (e) {
+  window.addEventListener("beforeunload", async (e) => {
     e.preventDefault();
+    try {
+      await persistTemporaryState(rkgk, brushes);
+    } catch (err) {
+      console.error(err);
+    }
     e.returnValue = "";
   });
 }

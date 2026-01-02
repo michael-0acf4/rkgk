@@ -163,12 +163,14 @@ export class Brush {
   /**
    * @param {CanvasRenderingContext2D} ctx
    * @param {PointerData} pointer
+   * @param {amortizedSize} boolean
    */
-  dab(ctx, pointer) {
+  dab(ctx, pointer, amortizedSize = false) {
     const p = this.pressureCurve(pointer.pressure);
     if (p <= 0) return;
 
-    const size = this.size * p;
+    const size = p *
+      (amortizedSize ? Math.sqrt(Math.max(4 * this.size, 0.0)) : this.size);
     const ar = this.texture.width / Math.max(0.0001, this.texture.height);
     const angle = this.angleTransform?.(pointer.orientation) ??
       Math.random() * Math.PI * 2;
@@ -208,6 +210,8 @@ export class Brush {
     const ctx = off.getContext("2d");
 
     const steps = 30;
+    // HACK: stroke will explode otherwise
+    const amortizedSize = true; // !
     const startX = width * 0.1;
     const endX = width * 1.0;
     const midY = height * 0.5;
@@ -225,7 +229,7 @@ export class Brush {
         pressure,
         tilt: 0,
         orientation: 0,
-      });
+      }, amortizedSize);
     }
 
     return await canvasToImage(off);
@@ -724,57 +728,8 @@ export class Serializer {
 
   /**
    * RKGK Binary Project Specification (Version 2)
-   *
    * I'd consider this a very pragmatic solution, technically a mini-file system.
-   *
    * A JSON header and a binary tail (refered within the JSON)
-   *
-   * A hybrid binary/JSON format for storing layered canvas projects with
-   * AES-GCM encryption.
-   * * FILE STRUCTURE:
-   * ```
-   * +--------+-----------+-------------------+----------------------------+
-   * | Offset | Size (B)  | Name              | Description                |
-   * +--------+-----------+-------------------+----------------------------+
-   * | 0      | 4         | Magic Number      | Constant ASCII "RKGK"      |
-   * | 4      | 4         | JSON Length       | Uint32 (LE) size of Header |
-   * | 8      | N         | JSON Header       | UTF-8 Encoded Metadata     |
-   * | 8 + N  | Variable  | Binary Payload    | Concatenated Encrypted     |
-   * |        |           |                   | Image Data Blobs           |
-   * +--------+-----------+-------------------+----------------------------+
-   * ```
-   *
-   * * JSON HEADER SCHEMA:
-   * ```
-   * {
-   *  "title": string,              // Project name
-   *  "currentLayerId": string,     // ID of the active layer
-   *  "encryption": {
-   *    "scheme": string            // "aes-gcm-pbkdf2-v1"
-   *   },
-   *  "layers": [                   // Array of layer metadata
-   *  {
-   *    "id": string,
-   *    "isVisible": boolean,
-   *    "opacity": number,
-   *    "width": number,
-   *    "height": number,
-   *    "iv": number[],           // 12-byte Initialization Vector
-   *    "salt": number[],         // 16-byte PBKDF2 Salt
-   *    "offset": number,         // Byte offset relative to Binary Payload start
-   *    "length": number          // Size of encrypted buffer in bytes
-   *  }
-   * ],
-   * "finalImage": {               // Flattened preview metadata
-   *   "offset": number,
-   *   "length": number,
-   *   ...cryptoMeta
-   *  }
-   * }
-   * ```
-   * 1. Key Derivation: PBKDF2 (SHA-256, 150k iterations)
-   * 2. Algorithm: AES-GCM (256-bit key)
-   * 3. Salt: Unique per layer, which is mixed with an optional APP_SIGNATURE at derivation time
    *
    * @param {RkgkEngine} rkgk
    */

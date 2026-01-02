@@ -95,24 +95,38 @@ export function texProceduralMarker(size) {
     return await canvasToImage(canvas);
   };
 }
-
 /**
  * @param {number} size
  */
 export function texEraser(size) {
-  return async (_color, _hardness) => {
+  return async (_color, hardness) => {
     const canvas = new OffscreenCanvas(size, size);
     const ctx = canvas.getContext("2d");
 
     const imgData = ctx.createImageData(size, size);
-    for (let i = 0; i < imgData.data.length; i += 4) {
-      imgData.data[i + 0] = 255;
-      imgData.data[i + 1] = 255;
-      imgData.data[i + 2] = 255;
-      imgData.data[i + 3] = Math.random() * 255;
-    }
-    ctx.putImageData(imgData, 0, 0);
+    const data = imgData.data;
 
+    const center = size / 2;
+    const radiusSq = (size / 2) ** 2;
+
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const i = (y * size + x) * 4;
+
+        const dx = x - center;
+        const dy = y - center;
+        const distSq = dx * dx + dy * dy;
+
+        if (distSq <= radiusSq) {
+          data[i + 0] = 255;
+          data[i + 1] = 255;
+          data[i + 2] = 255;
+          data[i + 3] = Math.floor(hardness * 200 + Math.random() * 55);
+        }
+      }
+    }
+
+    ctx.putImageData(imgData, 0, 0);
     return await canvasToImage(canvas);
   };
 }
@@ -166,8 +180,8 @@ export function stdBrushes() {
     }),
     new Brush({
       name: "Eraser",
-      spacing: 0.25,
-      size: 10,
+      spacing: 0.1,
+      size: 20,
       substract: true,
       textureLoader: texEraser(10),
       angleTransform: (_t) => Math.random() * 2 * Math.PI,

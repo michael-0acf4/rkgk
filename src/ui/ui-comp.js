@@ -1,4 +1,5 @@
 import { Layer } from "../rkgk/rkgk.js";
+import { clearTemporaryState } from "./ui-persist.js";
 import { createSpacer, helpWindow, projectOptionsWindow } from "./ui-window.js";
 
 export function getLayerContainerId({ id }) {
@@ -233,8 +234,7 @@ export class BrushMenu extends VerticalMenu {
           {
             color: b.color ?? "#000",
             size: b.size,
-            opacity: 1,
-            hardness: 1,
+            hardness: b.hardness,
           },
         ]),
       ),
@@ -261,7 +261,7 @@ export class BrushMenu extends VerticalMenu {
     hardness.min = 0.2;
     hardness.max = 1;
     hardness.step = 0.1;
-    size.value =
+    hardness.value =
       brushes.find((b) => b.id === this.state.activeBrushId).hardness;
     hardness.oninput = () => {
       this.activeSettings.hardness = +hardness.value;
@@ -528,6 +528,14 @@ export class CanvasViewport {
     };
 
     this.controls.append(
+      btn(
+        "New",
+        "Create new project",
+        async () => {
+          await clearTemporaryState();
+          window.location.reload();
+        },
+      ),
       btn(
         "Project",
         "Project options",
