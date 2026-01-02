@@ -247,7 +247,7 @@ export class BrushMenu extends VerticalMenu {
     size.type = "range";
     size.className = "slider";
     size.min = 2;
-    size.max = 300;
+    size.max = 100;
     size.value = brushes.find((b) => b.id === this.state.activeBrushId).size;
     size.oninput = () => {
       this.activeSettings.size = +size.value;

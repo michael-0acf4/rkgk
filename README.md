@@ -1,21 +1,21 @@
 
 # rkgk
 
-rkgk (Rakugaki), sketch anything, on any device, on the fly, with only a browser is required.
+[rkgk](https://rkgk.afmichael.dev) (Rakugaki), sketch anything, on any device, on the fly, with only a browser is required.
 
 # Motivations
 
-How much would it take to make a fully functionnal, semi-professional, with 0 bloat (dependencies) digital art app; all from scratch, that runs with low latency on the Browser?
+How much would it take to make a fully functionnal, semi-professional, no bloat (0 dependencies) digital art app that runs with low latency on the Browser from scratch?
 
 Well, THIS much!
 
-# Running
+# Quick start
 
 No installs, all you need is a server that can render static files.
 
 ```bash
 # You most likely already have Python installed on your machine
-# Just run this at the root directory
+# Just run this at the root directory and open http://localhost:4242
 python -m http.server 4242
 ```
 
@@ -37,11 +37,19 @@ Rkgk UI is a full-fledged frontend for rkgk.
 
 It showcases all the core aspect of rkgk, with some other neat additons.
 
-## TODO: line fidelity
+## Good line fidelity
 
-## TODO: layers
+Only constraint is your drawing tablet's friction.
 
-## TODO: references
+![lines](misc/lines.png)
+
+
+## Easy to work with reference images
+
+Simply drag & drop any image to the window
+
+![doro_chan](misc/doro_chan.png)
+
 
 Checkout the [rkgk demo](https://rkgk.afmichael.dev/demo) to see the core features in action, or maybe try [Rkgk UI](https://rkgk.afmichael.dev) for a full fledged semi-professional digital art app.
 

@@ -12,7 +12,7 @@
  */
 const APP_SIGNATURE = "rkgk-v1";
 
-const MAX_LAYER_HISTORY = 20;
+const MAX_LAYER_HISTORY = 50;
 
 /**
  * @param {string} prefix
