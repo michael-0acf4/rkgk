@@ -1,5 +1,5 @@
-import { Brush, RkgkEngine } from "./rkgk.js";
-import { texProceduralMarker } from "./rkgk-brushes.js";
+import { Brush, RkgkEngine } from "./rkgk/rkgk.js";
+import { texProceduralMarker } from "./rkgk/rkgk-brushes.js";
 
 async function main() {
   const texMarker = texProceduralMarker(10);
@@ -23,7 +23,7 @@ async function main() {
   });
 
   // Compiles a brush texture into a concrete colored Image object
-  await brush.setColor("#dc2626fa");
+  await brush.setFilter("#dc2626fa");
 
   const canvas = document.getElementById("canvas");
   const rkgk = new RkgkEngine(canvas);

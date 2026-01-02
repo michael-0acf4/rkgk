@@ -9,7 +9,7 @@
         --color-danger: #f10303;
         --color-disabled: #c7c7c7;
         --standard-global-font: system-ui, sans-serif;
-        --standard-global-color: #d3d7db;
+        --standard-global-color: #2b7998a2;
         --menu-background-color: #f6f8fa;
         --menu-wdith: 128px;
         --menu-padding: 18px;
@@ -18,11 +18,17 @@
         --thumb-layer-height: 86px;
         --thumb-brush-width: 120px;
         --thumb-brush-height: 40px;
-        --thumb-active-color: #d0ebff;
-        --thumb-active-border-color: #339af0;
+        --thumb-active-color: rgba(45, 149, 187, 0.446);
+        --thumb-active-border-color: rgba(35, 102, 126, 0.631);
         --floating-menu-background-color: rgba(45, 149, 187, 0.884);
         --floating-menu-control-color: rgba(35, 102, 126, 0.631);
         --floating-menu-text-color: white;
+      }
+
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: var(--floating-menu-control-color)
+          var(--floating-menu-background-color);
       }
 
       html, body {
@@ -44,10 +50,20 @@
       #canvasViewport {
         position: absolute;
         inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
         overflow: hidden;
+      }
+
+      /* This is the camera target */
+      #canvasStage {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform-origin: 0 0;
+      }
+
+      /* Canvas itself should NOT be transformed */
+      #canvas {
+        display: block;
       }
 
       canvas {
@@ -55,6 +71,7 @@
         touch-action: none;
         transform-origin: center center;
         box-shadow: 0 0 0 1px #938282;
+        cursor: crosshair;
       }
 
       /* Vertical menus */
@@ -110,8 +127,9 @@
       }
 
       .thumb-brush.active {
-        background: var(--thumb-active-color);
+        /*  background: var(--thumb-active-color);  */
         border-color: var(--thumb-active-border-color);
+        border-width: 4px;
       }
 
       .layer-list {
@@ -139,8 +157,9 @@
       }
 
       .layer-row.active {
-        background: var(--thumb-active-color);
+        /*  background: var(--thumb-active-color);  */
         border-color: var(--thumb-active-border-color);
+        border-width: 4px;
       }
 
       .layer-row:hover {
@@ -208,6 +227,15 @@
         color: var(--floating-menu-text-color);
       }
 
+      .basic-item-container {
+        cursor: pointer;
+        background: var(--floating-menu-control-color);
+        border: none;
+        color: var(--floating-menu-text-color);
+        padding: 2px 6px;
+        border-radius: 3px;
+      }
+
       .floating-window {
         background: var(--floating-menu-background-color);
         color: var(--floating-menu-text-color);
@@ -263,18 +291,73 @@
         background: var(--floating-menu-control-color);
         border-radius: 2px;
       }
+
+      .floating-window input[type="number"],
+      .floating-window input[type="password"],
+      .floating-window input[type="text"],
+      .floating-window input[type="color"] {
+        background: var(--floating-menu-background-color);
+        color: var(--floating-menu-text-color);
+        border: 1px solid var(--floating-menu-control-color);
+        border-radius: 3px;
+        padding: 4px 6px;
+        font-size: 13px;
+        outline: none;
+        width: 80px;
+        transition: border-color 0.2s, box-shadow 0.2s;
+      }
+
+      .floating-window input:focus {
+        border-color: var(--floating-menu-text-color);
+        box-shadow: 0 0 3px rgba(255, 255, 255, 0.5);
+      }
+
+      .floating-window button {
+        background: var(--floating-menu-control-color);
+        color: var(--floating-menu-text-color);
+        border: none;
+        border-radius: 3px;
+        padding: 4px 8px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background 0.2s, transform 0.1s;
+      }
+
+      .floating-window button:hover {
+        background: var(--floating-menu-text-color);
+        color: var(--floating-menu-background-color);
+        transform: translateY(-1px);
+      }
+
+      .floating-window button:active {
+        transform: translateY(0);
+        box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+      }
+      .floating-window input::placeholder {
+        color: rgba(255, 255, 255, 0.5);
+        font-style: italic;
+      }
+
+      .no-select {
+        user-select: none; /* standard */
+        -webkit-user-select: none; /* Safari/Chrome */
+        -moz-user-select: none; /* Firefox */
+        -ms-user-select: none; /* IE/Edge */
+      }
     </style>
   </head>
 
   <body>
     <div id="app">
       <div id="canvasViewport">
-        <canvas id="canvas" width="1200" height="1200"></canvas>
+        <div id="canvasStage">
+          <canvas id="canvas" width="1000" height="1000"></canvas>
+        </div>
       </div>
-      <div id="brushMenu" class="vmenu left"></div>
-      <div id="layerMenu" class="vmenu right"></div>
+      <div id="brushMenu" class="vmenu left no-select"></div>
+      <div id="layerMenu" class="vmenu right no-select"></div>
     </div>
 
-    <script type="module" src="src/ui-impl.js"></script>
+    <script type="module" src="src/index.js"></script>
   </body>
 </html>
