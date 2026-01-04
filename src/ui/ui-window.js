@@ -102,22 +102,33 @@ export class FloatingWindow {
   }
 
   #bindDrag() {
-    this.header.addEventListener("pointerdown", (e) => {
+    this.el.addEventListener("pointerdown", (e) => {
+      // HACK: drag "steals" mouse inputs, also click bubbles up to the parent
+      // making clicking clickable components impossible when the parent is dragged
+      const ignoredTags = ["BUTTON", "INPUT", "TEXTAREA", "SELECT", "A"];
+      if (
+        ignoredTags.includes(e.target.tagName) || e.target.closest("button")
+      ) {
+        return;
+      }
+      if (e.target === this.resizeHandle) return;
       this.dragging = true;
       this.offset.x = e.clientX - this.el.offsetLeft;
       this.offset.y = e.clientY - this.el.offsetTop;
-      this.header.setPointerCapture(e.pointerId);
+
+      this.el.setPointerCapture(e.pointerId);
     });
 
-    this.header.addEventListener("pointermove", (e) => {
+    this.el.addEventListener("pointermove", (e) => {
       if (!this.dragging) return;
+
       this.el.style.left = `${e.clientX - this.offset.x}px`;
       this.el.style.top = `${e.clientY - this.offset.y}px`;
     });
 
-    this.header.addEventListener("pointerup", (e) => {
+    this.el.addEventListener("pointerup", (e) => {
       this.dragging = false;
-      this.header.releasePointerCapture(e.pointerId);
+      this.el.releasePointerCapture(e.pointerId);
     });
   }
 
@@ -163,7 +174,7 @@ export function createSpacer(width = 8) {
 }
 
 /**
- * @param {string} title 
+ * @param {string} title
  * @param {string} message
  * @returns {Promise<boolean>}
  */

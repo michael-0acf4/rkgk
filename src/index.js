@@ -7,10 +7,7 @@ import {
   updateBrushThumbnail,
   updateLayerThumbnail,
 } from "./ui/ui-comp.js";
-import {
-  flashElement,
-  referenceWindow,
-} from "./ui/ui-window.js";
+import { flashElement, referenceWindow } from "./ui/ui-window.js";
 import { loadTemporaryState, persistTemporaryState } from "./ui/ui-persist.js";
 
 const canvas = document.getElementById("canvas");
@@ -23,7 +20,7 @@ rkgk.setupDOMEvents({
 const brushes = stdBrushes();
 
 export const GLOBALS = {
-  FORCE_EXIT: false
+  FORCE_EXIT: false,
 };
 
 rkgk.currentLayerId = rkgk.addLayer();

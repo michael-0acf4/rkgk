@@ -16,6 +16,9 @@ No installs, all you need is a server that can render static files.
 ```bash
 # You most likely already have Python installed on your machine
 # Just run this at the root directory and open http://localhost:4242
+
+git clone https://github.com/michael-0acf4/rkgk.git
+cd rkgk
 python -m http.server 4242
 ```
 

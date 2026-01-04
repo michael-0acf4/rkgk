@@ -1,7 +1,12 @@
 import { GLOBALS } from "../index.js";
 import { Layer } from "../rkgk/rkgk.js";
 import { clearTemporaryState } from "./ui-persist.js";
-import { acceptWindow, createSpacer, helpWindow, projectOptionsWindow } from "./ui-window.js";
+import {
+  acceptWindow,
+  createSpacer,
+  helpWindow,
+  projectOptionsWindow,
+} from "./ui-window.js";
 
 export function getLayerContainerId({ id }) {
   return ["layer", "container", id].join("-");
@@ -430,7 +435,6 @@ export class CanvasViewport {
     this.onPan?.({ x: this.state.x, y: this.state.y });
   }
 
-
   update() {
     const nextCanvas = this.rkgk?.renderer?.canvas ?? null;
     if (nextCanvas === this.canvas) return;
@@ -535,7 +539,10 @@ export class CanvasViewport {
         "New",
         "Create new project",
         async () => {
-          const userAccepts = await acceptWindow("New project", "The current state will not be saved. Are you sure?");
+          const userAccepts = await acceptWindow(
+            "New project",
+            "The current state will not be saved. Are you sure?",
+          );
           if (userAccepts) {
             GLOBALS.FORCE_EXIT = true;
             await clearTemporaryState();
