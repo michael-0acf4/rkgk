@@ -398,6 +398,7 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
     };
 
     root.querySelector("#export_btn").onclick = async () => {
+      const sp = startSpin();
       try {
         console.log(keyInput, keyInput.value);
         const serializer = new Serializer(keyInput.value);
@@ -417,6 +418,7 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
         console.error("Failed to export project:", err);
         errorWindow(err + "");
       } finally {
+        sp.unload();
         win.close(true);
       }
     };
@@ -432,6 +434,7 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
         if (!file) return;
 
         let errors = [];
+        const sp = startSpin();
         try {
           const serializer = new Serializer(keyInput.value);
           errors = await serializer.from(rkgk, file);
@@ -441,6 +444,7 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
           console.error("Failed to load project:", err);
           errors = [err];
         } finally {
+          sp.unload();
           if (errors.length > 0) {
             errorWindow(
               `Failed loading project "${file.name}":`,
@@ -490,4 +494,15 @@ export function referenceWindow(file, position) {
 
     root.appendChild(img);
   });
+}
+
+export function startSpin() {
+  const target = document.documentElement; // Root <html> element
+  target.classList.add("is-loading");
+
+  return {
+    unload: () => {
+      target.classList.remove("is-loading");
+    },
+  };
 }

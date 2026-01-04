@@ -1,11 +1,12 @@
 import { GLOBALS } from "../index.js";
-import { Layer } from "../rkgk/rkgk.js";
+import { Layer, stdStaticPapers } from "../rkgk/rkgk.js";
 import { clearTemporaryState } from "./ui-persist.js";
 import {
   acceptWindow,
   createSpacer,
   helpWindow,
   projectOptionsWindow,
+  startSpin,
 } from "./ui-window.js";
 
 export function getLayerContainerId({ id }) {
@@ -92,10 +93,9 @@ class LayerComponent {
 }
 
 export class LayerMenu extends VerticalMenu {
-  constructor(root, { rkgk, papers }) {
+  constructor(root, { rkgk }) {
     super(root);
     this.rkgk = rkgk;
-    this.papers = papers ?? [];
     this.state = {
       layerRows: new Map(), // layerId -> row element
     };
@@ -134,28 +134,29 @@ export class LayerMenu extends VerticalMenu {
     this.paperSelect.className = "select";
     const defaultOption = document.createElement("option");
     defaultOption.value = "";
-    defaultOption.textContent = "Select Paper...";
-    defaultOption.disabled = true;
+    defaultOption.textContent = "Default Paper";
     this.paperSelect.appendChild(defaultOption);
 
-    this.papers.forEach((paper) => {
+    stdStaticPapers().forEach((paper) => {
       const option = document.createElement("option");
       option.value = paper.id;
       option.textContent = paper.name;
       this.paperSelect.appendChild(option);
     });
 
-    this.paperSelect.onchange = () => {
+    this.paperSelect.onchange = async () => {
       const layer = this.rkgk.getLayer(this.rkgk.currentLayerId);
-      const selectedPaper = this.papers.find((p) =>
-        p.id === this.paperSelect.value
-      );
-      if (layer && selectedPaper) {
-        layer.paper = selectedPaper;
-        this.paperStrength.value = layer.paperStrength ??
-          selectedPaper.strength ?? 1.0;
-        this.updatePaperParameters(layer);
-        updateTitle(this.paperStrength, "Paper Strength");
+      if (layer) {
+        const paperId = this.paperSelect.value;
+        const currentStrength = +this.paperStrength.value;
+
+        await layer.setPaperByPaperId(paperId, currentStrength);
+
+        if (layer.paper) {
+          this.paperStrength.value = layer.paper.strength ?? 1.0;
+          this.updatePaperParameters(layer);
+          updateTitle(this.paperStrength, "Paper Strength");
+        }
       }
     };
 
@@ -170,8 +171,9 @@ export class LayerMenu extends VerticalMenu {
       const layer = this.rkgk.getLayer(this.rkgk.currentLayerId);
       if (layer && layer.paper) {
         const val = +this.paperStrength.value;
-        layer.paperStrength = val;
+        layer.paper.strength = val;
         this.updatePaperParameters(layer);
+        updateTitle(this.paperStrength, "Paper Strength");
       }
     };
 
@@ -188,12 +190,15 @@ export class LayerMenu extends VerticalMenu {
   updatePaperParameters(layer) {
     if (layer.paper && typeof layer.paper.setParameters === "function") {
       const { width, height } = this.rkgk.renderer.canvas;
-      const strength = layer.paperStrength ?? layer.paper.strength ?? 1.0;
+      const strength = layer.paper.strength ?? 1.0;
+      const sp = startSpin();
       layer.paper.setParameters(
         width,
         height,
         strength,
-      );
+      ).then(() => {
+        sp.unload();
+      });
     }
   }
 
@@ -202,9 +207,9 @@ export class LayerMenu extends VerticalMenu {
     this.opacityInput.value = layer.opacity ?? 1;
     updateTitle(this.opacityInput, "Layer Opacity");
 
+    // layer.paper is the source of truth for current state
     this.paperSelect.value = layer.paper?.id ?? "";
-    this.paperStrength.value = layer.paperStrength ?? layer.paper?.strength ??
-      1.0;
+    this.paperStrength.value = layer.paper?.strength ?? 1.0;
     updateTitle(this.paperStrength, "Paper Strength");
   }
 

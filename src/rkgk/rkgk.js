@@ -231,11 +231,6 @@ export function stdStaticPapers() {
   // only add if required
   return [
     new Paper({
-      staticId: "raw",
-      name: "Raw",
-      textureLoader: null,
-    }),
-    new Paper({
       staticId: "vertical-lines",
       name: "Vertical Lines",
       textureLoader: texPaperLinesInclined("vertical"),
@@ -437,6 +432,25 @@ export class Layer {
   }
 
   /**
+   * @param {string} paperStaticId
+   * @param {number | null} strength
+   */
+  async setPaperByPaperId(paperStaticId, strength = null) {
+    const papers = stdStaticPapers();
+    const paperInstance = papers.find((p) => p.id == paperStaticId);
+    if (paperInstance) {
+      await paperInstance.setParameters(
+        this.renderer.canvas.width,
+        this.renderer.canvas.height,
+        strength,
+      );
+      this.paper = paperInstance;
+    } else {
+      this.paper = null;
+    }
+  }
+
+  /**
    * @param {"backward" | "forward"} direction
    */
   historyTravel(direction) {
@@ -479,7 +493,7 @@ export class Layer {
 
     // HQ downscale
     ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "medium";
+    ctx.imageSmoothingQuality = "high";
 
     const arSrc = canvas.width / canvas.height;
     const arDst = width / height;
@@ -1044,8 +1058,6 @@ export class Serializer {
       };
     };
 
-    const stdPapers = stdStaticPapers();
-
     // Decrypt Layers
     for (const l of meta.layers) {
       try {
@@ -1059,15 +1071,10 @@ export class Serializer {
         layer.renderer.context.putImageData(imgData, 0, 0);
         layer.snapshot();
 
-        const paperInstance = stdPapers.find((p) => p.id == payload.paper?.id);
-        if (paperInstance) {
-          await paperInstance.setParameters(
-            layer.renderer.canvas.width,
-            layer.renderer.canvas.height,
-            payload.paper?.strength,
-          );
-          layer.paper = paperInstance;
-        }
+        await layer.setPaperByPaperId(
+          payload.paper?.id,
+          payload.paper?.strength ?? null,
+        );
 
         if (rkgk.layers.length == 0) {
           await rkgk.resize(imgData.width, imgData.height);
