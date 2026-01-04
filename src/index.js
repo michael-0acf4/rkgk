@@ -21,6 +21,7 @@ const brushes = stdBrushes();
 
 export const GLOBALS = {
   FORCE_EXIT: false,
+  UNSAVED: true
 };
 
 rkgk.currentLayerId = rkgk.addLayer();
@@ -34,6 +35,9 @@ rkgk.addListeners({
     console.warn("drawing on an invisble layers");
     flashElement(rkgk.renderer.canvas, "rgba(255, 0, 0, 0.2)");
   },
+  onStroke: (_) => {
+    GLOBALS.UNSAVED = true;
+  }
 });
 
 /**
@@ -109,11 +113,14 @@ async function main() {
 
   setInterval(async () => {
     try {
-      await persistTemporaryState(rkgk, brushes);
+      if (GLOBALS.UNSAVED) {
+        await persistTemporaryState(rkgk, brushes);
+        GLOBALS.UNSAVED = false;
+      }
     } catch (err) {
       console.error(err);
     }
-  }, 10_000);
+  }, 5_000);
 
   function reloadProject() {
     layerMenu.update();

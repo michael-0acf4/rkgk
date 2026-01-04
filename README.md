@@ -75,7 +75,7 @@ rkgk binary file format is also dumb simple and designed to be easy to extend.
 
 The idea is that within the `meta json string`, we can just refer to the offset of the encrypted images.
 
-For a complete understanding, it would be easier to directly read the implementation in [rkgk.js](./src/rkgk/rkgk.js), it is very short, it's used within the `Serializer` class.
+For a complete understanding, it would be easier to directly read the implementation in [rkgk.js](./src/rkgk/rkgk.js), It is very short, and is being used within the `Serializer` class.
 
 This is the specification for the current version (v2). It is a hybrid binary/JSON format for storing layered canvas projects with AES-GCM encryption.
 

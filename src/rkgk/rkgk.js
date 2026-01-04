@@ -532,6 +532,7 @@ export class RkgkEngine {
               event.pointer,
               // TODO: speed for speed curve
             );
+            this.onStroke?.(event.pointer);
             state.lastPos = event.pointer;
           } else {
             this.onDrawingInvisbleLayer?.();
@@ -630,12 +631,14 @@ export class RkgkEngine {
 
   addListeners({
     onDrawingInvisbleLayer,
+    onStroke,
   }) {
     if (typeof onDrawingInvisbleLayer != "function") {
       throw new Error("onDrawingInvisbleLayer expected a function");
     }
 
     this.onDrawingInvisbleLayer = onDrawingInvisbleLayer;
+    this.onStroke = onStroke;
   }
 }
 
