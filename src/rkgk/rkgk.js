@@ -3,8 +3,7 @@
 /** @typedef {{ x: number, y: number, pressure: number, tilt: number, orientation: number }} PointerData */
 /** @typedef {{ kind: EventKind, pointer: PointerData, pointerId: number | null }} RkgkEvent */
 /** @typedef {{ lastPos: PointerData, drawing: boolean, activePointerId: number | null }} EventState */
-/** @typedef {{ drawable: HTMLImageElement, width: number, height: number }} BrushTexture */
-/** @typedef {{ offsetX: number, offsetY: number, scale: number }} ViewTransformation */
+/** @typedef {{ drawable: HTMLImageElement, width: number, height: number }} ImageTexture */
 
 /**
  * WARNING!
@@ -86,6 +85,174 @@ export async function canvasToImage(canvas, transparent = true) {
   return { drawable: img, width: img.width, height: img.height };
 }
 
+export class Paper {
+  constructor({
+    staticId,
+    name,
+    textureLoader = null,
+  }) {
+    this.id = staticId;
+    this.name = name;
+    this.textureLoader = textureLoader;
+    this.strength = 1.0;
+  }
+
+  /**
+   * @param {number} width
+   * @param {number} height
+   * @param {number?} strength
+   */
+  async setParameters(width, height, strength) {
+    if (strength) {
+      this.strength = Math.min(1.0, Math.max(0.0, strength));
+    }
+
+    /**
+     * @type {ImageTexture}
+     */
+    this.texture = await this.textureLoader?.(width, height, strength);
+
+    const canvas = new OffscreenCanvas(width, height);
+    /**
+     * @type {Renderer}
+     */
+    this.renderer = {
+      canvas,
+      context: canvas.getContext("2d"),
+    };
+  }
+
+  /**
+   * @param {HTMLCanvasElement | OffscreenCanvas} ogCanvas
+   */
+  absorbInk(ogCanvas) {
+    if (!this.texture || !this.renderer) return ogCanvas;
+
+    const { context: ctx, canvas } = this.renderer;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.globalCompositeOperation = "source-over";
+    ctx.drawImage(ogCanvas, 0, 0);
+
+    ctx.globalCompositeOperation = "destination-in";
+    ctx.drawImage(this.texture.drawable, 0, 0); // !mask
+
+    ctx.globalCompositeOperation = "source-over";
+
+    return canvas;
+  }
+}
+
+/**
+ * @param {"horizontal" | "vertical"} direction
+ * @returns
+ */
+export function texPaperLinesInclined(direction) {
+  /**
+   * @param {number} width
+   * @param {number} height
+   * @param {number} strength
+   */
+  return async (width, height, strength = 1.0) => {
+    const maskCanvas = new OffscreenCanvas(width, height);
+    const ctx = maskCanvas.getContext("2d");
+
+    strength = Math.max(0, Math.min(1, strength));
+
+    const minSpacing = 2;
+    const maxSpacing = 5;
+    const spacing = Math.round(
+      minSpacing + strength * (maxSpacing - minSpacing),
+    );
+
+    const minWidth = 1;
+    const maxWidth = 4;
+    const lineWidth = Math.round(
+      minWidth + strength * (maxWidth - minWidth),
+    );
+
+    ctx.clearRect(0, 0, width, height);
+
+    ctx.fillStyle = "rgba(0, 0, 0, 1)";
+    if (direction == "horizontal") {
+      for (let y = 0; y < height; y += spacing) {
+        ctx.fillRect(0, y, width, lineWidth);
+      }
+    } else if (direction == "vertical") {
+      for (let x = 0; x < width; x += spacing) {
+        ctx.fillRect(x, 0, lineWidth, height);
+      }
+    } // else at an angle?
+
+    return await canvasToImage(maskCanvas);
+  };
+}
+
+/**
+ * Manga-style screentone (circular dots)
+ *
+ * @param {number} width
+ * @param {number} height
+ * @param {number} strength
+ */
+export async function texPaperManga(width, height, strength = 1.0) {
+  const maskCanvas = new OffscreenCanvas(width, height);
+  const ctx = maskCanvas.getContext("2d");
+
+  strength = Math.max(0, Math.min(1, strength));
+
+  const minGap = 4;
+  const maxGap = 10;
+  const gap = Math.round(
+    minGap + (1 - strength) * (maxGap - minGap),
+  );
+
+  const minRadius = 2;
+  const maxRadius = Math.floor(gap / 2);
+  const radius = Math.max(
+    minRadius,
+    Math.round(minRadius + strength * (maxRadius - minRadius)),
+  );
+
+  ctx.fillStyle = "rgba(0, 0, 0, 1)";
+  for (let y = gap / 2; y < height; y += gap) {
+    for (let x = gap / 2; x < width; x += gap) {
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  return await canvasToImage(maskCanvas);
+}
+
+export function stdStaticPapers() {
+  // Immutable per spec (otherwise will break imports)
+  // only add if required
+  return [
+    new Paper({
+      staticId: "raw",
+      name: "Raw",
+      textureLoader: null,
+    }),
+    new Paper({
+      staticId: "vertical-lines",
+      name: "Vertical Lines",
+      textureLoader: texPaperLinesInclined("vertical"),
+    }),
+    new Paper({
+      staticId: "horizontal-lines",
+      name: "Horizontal Lines",
+      textureLoader: texPaperLinesInclined("horizontal"),
+    }),
+    new Paper({
+      staticId: "screentone",
+      name: "Screentone",
+      textureLoader: texPaperManga,
+    }),
+  ];
+}
+
 // IDEA: speed curve: slower strokes => denser
 
 export class Brush {
@@ -121,7 +288,7 @@ export class Brush {
   async setFilter(color = "#000000", hardness = 1.0) {
     this.color = color;
     this.hardness = hardness;
-    /** @type {BrushTexture} */
+    /** @type {ImageTexture} */
     this.texture = await this.textureLoader(this.color, this.hardness);
   }
 
@@ -256,6 +423,8 @@ export class Layer {
     this.history = [];
     /** @type ImageData[] */
     this.redoHistory = [];
+    /** @type {Paper | null} */
+    this.paper = null;
   }
 
   snapshot() {
@@ -299,14 +468,17 @@ export class Layer {
    * @param {number} height
    */
   async getThumbnail(width, height) {
-    const { canvas } = this.renderer;
+    let { canvas } = this.renderer;
+    if (this.paper) {
+      canvas = this.paper.absorbInk(canvas);
+    }
 
     const off = new OffscreenCanvas(width, height);
     const ctx = off.getContext("2d");
 
     // HQ downscale
     ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
+    ctx.imageSmoothingQuality = "medium";
 
     const arSrc = canvas.width / canvas.height;
     const arDst = width / height;
@@ -386,10 +558,16 @@ export class RkgkEngine {
 
     for (const layer of this.layers) {
       if (!layer.isVisible) continue;
+      let sourceCanvas;
+      if (layer.paper) {
+        sourceCanvas = layer.paper.absorbInk(layer.renderer.canvas);
+      } else {
+        sourceCanvas = layer.renderer.canvas;
+      }
 
       const oldAlpha = mainContext.globalAlpha;
       mainContext.globalAlpha = layer.opacity;
-      mainContext.drawImage(layer.renderer.canvas, 0, 0);
+      mainContext.drawImage(sourceCanvas, 0, 0);
       mainContext.globalAlpha = oldAlpha;
       // SLOW! reserve this for snapshots
       // const buffer = layer.getImageDataBuffer();
@@ -442,7 +620,7 @@ export class RkgkEngine {
    * @param {number?} newWidth
    * @param {number?} newHeight
    */
-  resize(newWidth, newHeight) {
+  async resize(newWidth, newHeight) {
     const mainCanvas = this.renderer.canvas;
     const mainCtx = this.renderer.context;
 
@@ -468,6 +646,10 @@ export class RkgkEngine {
 
       if (newWidth) layer.renderer.canvas.width = newWidth;
       if (newHeight) layer.renderer.canvas.height = newHeight;
+      await layer?.paper?.setParameters(
+        layer.renderer.canvas.width,
+        layer.renderer.canvas.height,
+      );
 
       layer.renderer.context.putImageData(oldLayer, 0, 0);
     }
@@ -751,6 +933,12 @@ export class Serializer {
         id: layer.id,
         isVisible: layer.isVisible,
         opacity: layer.opacity,
+        paper: layer.paper
+          ? {
+            id: layer.paper.id,
+            strength: layer.paper.strength,
+          }
+          : null,
         width: locked.width,
         height: locked.height,
         iv: Array.from(locked.iv),
@@ -848,11 +1036,14 @@ export class Serializer {
         scheme: meta.encryption.scheme,
         width: l.width,
         height: l.height,
+        paper: l?.paper ?? null,
         iv: new Uint8Array(l.iv),
         salt: new Uint8Array(l.salt),
         buffer: encryptedBuffer,
       };
     };
+
+    const stdPapers = stdStaticPapers();
 
     // Decrypt Layers
     for (const l of meta.layers) {
@@ -867,8 +1058,18 @@ export class Serializer {
         layer.renderer.context.putImageData(imgData, 0, 0);
         layer.snapshot();
 
-        if (rkgk.layers.length === 0) {
-          rkgk.resize(imgData.width, imgData.height);
+        const paperInstance = stdPapers.find((p) => p.id == payload.paper?.id);
+        if (paperInstance) {
+          await paperInstance.setParameters(
+            layer.renderer.canvas.width,
+            layer.renderer.canvas.height,
+            payload.paper?.strength,
+          );
+          layer.paper = paperInstance;
+        }
+
+        if (rkgk.layers.length == 0) {
+          await rkgk.resize(imgData.width, imgData.height);
         }
         rkgk.layers.push(layer);
       } catch (err) {
@@ -888,7 +1089,7 @@ export class Serializer {
         const payload = getPayload(meta.finalImage);
         const imgData = await unlockImageData(payload, APP_SIGNATURE);
         rkgk.layers = [];
-        rkgk.resize(imgData.width, imgData.height);
+        await rkgk.resize(imgData.width, imgData.height);
         rkgk.currentLayerId = rkgk.addLayer();
         const placeholderLayer = rkgk.getLayer(rkgk.currentLayerId);
 

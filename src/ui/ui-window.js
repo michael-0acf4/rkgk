@@ -185,6 +185,7 @@ export function acceptWindow(title, message) {
       width: 420,
       showCancel: true,
       onClose: resolve,
+      makeUnique: true,
     });
 
     accept.setContent((root) => {
@@ -371,11 +372,11 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
       }
     };
 
-    root.querySelector("#resize_btn").onclick = () => {
+    root.querySelector("#resize_btn").onclick = async () => {
       const w = parseInt(widthInput.value, 10);
       const h = parseInt(heightInput.value, 10);
       if (!isNaN(w) && !isNaN(h)) {
-        rkgk.resize(w, h);
+        await rkgk.resize(w, h);
         aspectRatio = w / h;
       }
     };

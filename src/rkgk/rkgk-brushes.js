@@ -21,7 +21,7 @@ export function texFromImage(url) {
     ctx.globalCompositeOperation = "source-in";
     ctx.fillStyle = color;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.globalCompositeOperation = "source-over";
+    // ctx.globalCompositeOperation = "source-over";
 
     return await canvasToImage(canvas);
   };

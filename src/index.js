@@ -1,4 +1,4 @@
-import { Brush, RkgkEngine } from "./rkgk/rkgk.js";
+import { Brush, Paper, RkgkEngine, stdStaticPapers } from "./rkgk/rkgk.js";
 import { stdBrushes } from "./rkgk/rkgk-brushes.js";
 import {
   BrushMenu,
@@ -18,10 +18,11 @@ rkgk.setupDOMEvents({
   ],
 }); // !
 const brushes = stdBrushes();
+const papers = stdStaticPapers();
 
 export const GLOBALS = {
   FORCE_EXIT: false,
-  UNSAVED: true
+  UNSAVED: true,
 };
 
 rkgk.currentLayerId = rkgk.addLayer();
@@ -37,7 +38,7 @@ rkgk.addListeners({
   },
   onStroke: (_) => {
     GLOBALS.UNSAVED = true;
-  }
+  },
 });
 
 /**
@@ -50,12 +51,24 @@ async function initBrushes(brushes) {
   rkgk.brush = brushes[0];
 }
 
+/**
+ * @param {RkgkEngine} rkgk
+ * @param {Paper[]} papers
+ */
+async function initPapers(rkgk, papers) {
+  const { width, height } = rkgk.getDim();
+  for (const paper of papers) {
+    await paper.setParameters(width, height, 1.0);
+  }
+}
+
 async function main() {
   try {
     await loadTemporaryState(rkgk, brushes);
   } catch (err) {
     console.warn(err);
     await initBrushes(brushes);
+    await initPapers(rkgk, papers);
   }
 
   new BrushMenu(
@@ -95,7 +108,7 @@ async function main() {
 
   const layerMenu = new LayerMenu(
     document.getElementById("layerMenu"),
-    { rkgk },
+    { rkgk, papers },
   );
 
   // Thumbs
