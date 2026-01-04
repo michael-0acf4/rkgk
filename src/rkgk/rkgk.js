@@ -468,10 +468,11 @@ export class Layer {
    * @param {number} height
    */
   async getThumbnail(width, height) {
-    let { canvas } = this.renderer;
-    if (this.paper) {
-      canvas = this.paper.absorbInk(canvas);
-    }
+    const { canvas } = this.renderer;
+    // let { canvas } = this.renderer;
+    // if (this.paper) {
+    //   canvas = this.paper.absorbInk(canvas);
+    // }
 
     const off = new OffscreenCanvas(width, height);
     const ctx = off.getContext("2d");
