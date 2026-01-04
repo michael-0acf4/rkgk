@@ -51,7 +51,7 @@ Simply drag & drop any image to the window
 ![doro_chan](misc/doro_chan.png)
 
 
-Checkout the [rkgk demo](https://rkgk.afmichael.dev/demo) to see the core features in action, or maybe try [Rkgk UI](https://rkgk.afmichael.dev) for a full fledged semi-professional digital art app.
+Checkout the [rkgk demo](https://rkgk.afmichael.dev/demo) to see the core features in action, or maybe try [Rkgk UI](https://rkgk.afmichael.dev) for a full-fledged semi-professional digital art app.
 
 
 # Boring details

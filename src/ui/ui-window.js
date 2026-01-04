@@ -162,6 +162,28 @@ export function createSpacer(width = 8) {
   return spacer;
 }
 
+/**
+ * @param {string} title 
+ * @param {string} message
+ * @returns {Promise<boolean>}
+ */
+export function acceptWindow(title, message) {
+  return new Promise((resolve, _) => {
+    const accept = new FloatingWindow(document.body, {
+      title,
+      width: 420,
+      showCancel: true,
+      onClose: resolve,
+    });
+
+    accept.setContent((root) => {
+      const txt = document.createElement("p");
+      txt.innerText = message;
+      root.appendChild(txt);
+    });
+  });
+}
+
 export function helpWindow() {
   const shortcuts = new FloatingWindow(document.body, {
     title: "Help",
@@ -173,9 +195,9 @@ export function helpWindow() {
   shortcuts.setContent((root) => {
     const txt = document.createElement("div");
     txt.innerHTML = `
-      <p><b>Pan</b>: Alt+Mouse or Alt+↑, ↓, ←, →</p>
+      <p><b>Pan</b>: Alt+Mouse or ↑, ↓, ←, →</p>
       <p><b>Zoom</b>: Alt+Scroll</p>
-      <p><b>Reset</b>: Alt+R, or by *clicking* on the zoom value</p>
+      <p><b>Reset</b>: Alt+R, or by <b>clicking</b> on the zoom value</p>
       <p><b>Undo/Redo</b>: Ctrl+Z/Ctrl+Y</p>
       <br/>
       <p><b>References</b>: you can <b>drag & drop</b> images to use as a reference</p>

@@ -1,6 +1,7 @@
+import { GLOBALS } from "../index.js";
 import { Layer } from "../rkgk/rkgk.js";
 import { clearTemporaryState } from "./ui-persist.js";
-import { createSpacer, helpWindow, projectOptionsWindow } from "./ui-window.js";
+import { acceptWindow, createSpacer, helpWindow, projectOptionsWindow } from "./ui-window.js";
 
 export function getLayerContainerId({ id }) {
   return ["layer", "container", id].join("-");
@@ -48,9 +49,12 @@ class LayerComponent {
     const remove = document.createElement("button");
     remove.className = "layer-flag";
     remove.textContent = "x";
-    remove.onclick = (e) => {
+    remove.onclick = async (e) => {
       e.stopPropagation();
-      this.onRemoveLayer?.(this.layer.id);
+      const userAccepts = await acceptWindow("Delete layer", "Are you sure?");
+      if (userAccepts) {
+        this.onRemoveLayer?.(this.layer.id);
+      }
     };
 
     const visible = document.createElement("button");
@@ -531,8 +535,14 @@ export class CanvasViewport {
         "New",
         "Create new project",
         async () => {
-          await clearTemporaryState();
-          window.location.reload();
+          const userAccepts = await acceptWindow("New project", "The current state will not be saved. Are you sure?");
+          if (userAccepts) {
+            GLOBALS.FORCE_EXIT = true;
+            await clearTemporaryState();
+            window.location.reload();
+          } else {
+            console.warn("New project creation cancelled");
+          }
         },
       ),
       btn(

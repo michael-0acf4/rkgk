@@ -22,6 +22,10 @@ rkgk.setupDOMEvents({
 }); // !
 const brushes = stdBrushes();
 
+export const GLOBALS = {
+  FORCE_EXIT: false
+};
+
 rkgk.currentLayerId = rkgk.addLayer();
 // rkgk.currentLayerId = rkgk.addLayer();
 // rkgk.currentLayerId = rkgk.addLayer();
@@ -138,13 +142,18 @@ async function main() {
   });
   window.addEventListener("dragover", (e) => e.preventDefault());
   window.addEventListener("beforeunload", async (e) => {
+    if (GLOBALS.FORCE_EXIT) {
+      console.warn("force exit");
+      return;
+    }
+
     e.preventDefault();
+    e.returnValue = "";
     try {
       await persistTemporaryState(rkgk, brushes);
     } catch (err) {
       console.error(err);
     }
-    e.returnValue = "";
   });
 }
 

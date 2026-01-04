@@ -2,7 +2,6 @@ import { Brush, canvasToImage } from "./rkgk.js";
 
 /**
  * @param {string} url
- * @param {string} color
  */
 export function texFromImage(url) {
   return async (color, hardness) => {
@@ -95,6 +94,7 @@ export function texProceduralMarker(size) {
     return await canvasToImage(canvas);
   };
 }
+
 /**
  * @param {number} size
  */
