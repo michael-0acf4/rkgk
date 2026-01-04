@@ -102,22 +102,33 @@ export class FloatingWindow {
   }
 
   #bindDrag() {
-    this.header.addEventListener("pointerdown", (e) => {
+    this.el.addEventListener("pointerdown", (e) => {
+      // HACK: drag "steals" mouse inputs, also click bubbles up to the parent
+      // making clicking clickable components impossible when the parent is dragged
+      const ignoredTags = ["BUTTON", "INPUT", "TEXTAREA", "SELECT", "A"];
+      if (
+        ignoredTags.includes(e.target.tagName) || e.target.closest("button")
+      ) {
+        return;
+      }
+      if (e.target === this.resizeHandle) return;
       this.dragging = true;
       this.offset.x = e.clientX - this.el.offsetLeft;
       this.offset.y = e.clientY - this.el.offsetTop;
-      this.header.setPointerCapture(e.pointerId);
+
+      this.el.setPointerCapture(e.pointerId);
     });
 
-    this.header.addEventListener("pointermove", (e) => {
+    this.el.addEventListener("pointermove", (e) => {
       if (!this.dragging) return;
+
       this.el.style.left = `${e.clientX - this.offset.x}px`;
       this.el.style.top = `${e.clientY - this.offset.y}px`;
     });
 
-    this.header.addEventListener("pointerup", (e) => {
+    this.el.addEventListener("pointerup", (e) => {
       this.dragging = false;
-      this.header.releasePointerCapture(e.pointerId);
+      this.el.releasePointerCapture(e.pointerId);
     });
   }
 
@@ -162,6 +173,29 @@ export function createSpacer(width = 8) {
   return spacer;
 }
 
+/**
+ * @param {string} title
+ * @param {string} message
+ * @returns {Promise<boolean>}
+ */
+export function acceptWindow(title, message) {
+  return new Promise((resolve, _) => {
+    const accept = new FloatingWindow(document.body, {
+      title,
+      width: 420,
+      showCancel: true,
+      onClose: resolve,
+      makeUnique: true,
+    });
+
+    accept.setContent((root) => {
+      const txt = document.createElement("p");
+      txt.innerText = message;
+      root.appendChild(txt);
+    });
+  });
+}
+
 export function helpWindow() {
   const shortcuts = new FloatingWindow(document.body, {
     title: "Help",
@@ -173,9 +207,9 @@ export function helpWindow() {
   shortcuts.setContent((root) => {
     const txt = document.createElement("div");
     txt.innerHTML = `
-      <p><b>Pan</b>: Alt+Mouse or Alt+↑, ↓, ←, →</p>
+      <p><b>Pan</b>: Alt+Mouse or ↑, ↓, ←, →</p>
       <p><b>Zoom</b>: Alt+Scroll</p>
-      <p><b>Reset</b>: Alt+R, or by *clicking* on the zoom value</p>
+      <p><b>Reset</b>: Alt+R, or by <b>clicking</b> on the zoom value</p>
       <p><b>Undo/Redo</b>: Ctrl+Z/Ctrl+Y</p>
       <br/>
       <p><b>References</b>: you can <b>drag & drop</b> images to use as a reference</p>
@@ -338,11 +372,11 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
       }
     };
 
-    root.querySelector("#resize_btn").onclick = () => {
+    root.querySelector("#resize_btn").onclick = async () => {
       const w = parseInt(widthInput.value, 10);
       const h = parseInt(heightInput.value, 10);
       if (!isNaN(w) && !isNaN(h)) {
-        rkgk.resize(w, h);
+        await rkgk.resize(w, h);
         aspectRatio = w / h;
       }
     };
@@ -364,6 +398,7 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
     };
 
     root.querySelector("#export_btn").onclick = async () => {
+      const sp = startSpin();
       try {
         console.log(keyInput, keyInput.value);
         const serializer = new Serializer(keyInput.value);
@@ -383,6 +418,7 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
         console.error("Failed to export project:", err);
         errorWindow(err + "");
       } finally {
+        sp.unload();
         win.close(true);
       }
     };
@@ -398,6 +434,7 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
         if (!file) return;
 
         let errors = [];
+        const sp = startSpin();
         try {
           const serializer = new Serializer(keyInput.value);
           errors = await serializer.from(rkgk, file);
@@ -407,6 +444,7 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
           console.error("Failed to load project:", err);
           errors = [err];
         } finally {
+          sp.unload();
           if (errors.length > 0) {
             errorWindow(
               `Failed loading project "${file.name}":`,
@@ -456,4 +494,15 @@ export function referenceWindow(file, position) {
 
     root.appendChild(img);
   });
+}
+
+export function startSpin() {
+  const target = document.documentElement; // Root <html> element
+  target.classList.add("is-loading");
+
+  return {
+    unload: () => {
+      target.classList.remove("is-loading");
+    },
+  };
 }

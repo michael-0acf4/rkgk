@@ -1,4 +1,4 @@
-import { Brush, RkgkEngine } from "./rkgk/rkgk.js";
+import { Brush, Paper, RkgkEngine, stdStaticPapers } from "./rkgk/rkgk.js";
 import { stdBrushes } from "./rkgk/rkgk-brushes.js";
 import {
   BrushMenu,
@@ -7,10 +7,7 @@ import {
   updateBrushThumbnail,
   updateLayerThumbnail,
 } from "./ui/ui-comp.js";
-import {
-  flashElement,
-  referenceWindow,
-} from "./ui/ui-window.js";
+import { flashElement, referenceWindow } from "./ui/ui-window.js";
 import { loadTemporaryState, persistTemporaryState } from "./ui/ui-persist.js";
 
 const canvas = document.getElementById("canvas");
@@ -22,6 +19,11 @@ rkgk.setupDOMEvents({
 }); // !
 const brushes = stdBrushes();
 
+export const GLOBALS = {
+  FORCE_EXIT: false,
+  UNSAVED: true,
+};
+
 rkgk.currentLayerId = rkgk.addLayer();
 // rkgk.currentLayerId = rkgk.addLayer();
 // rkgk.currentLayerId = rkgk.addLayer();
@@ -32,6 +34,9 @@ rkgk.addListeners({
   onDrawingInvisbleLayer: () => {
     console.warn("drawing on an invisble layers");
     flashElement(rkgk.renderer.canvas, "rgba(255, 0, 0, 0.2)");
+  },
+  onStroke: (_) => {
+    GLOBALS.UNSAVED = true;
   },
 });
 
@@ -108,11 +113,14 @@ async function main() {
 
   setInterval(async () => {
     try {
-      await persistTemporaryState(rkgk, brushes);
+      if (GLOBALS.UNSAVED) {
+        await persistTemporaryState(rkgk, brushes);
+        GLOBALS.UNSAVED = false;
+      }
     } catch (err) {
       console.error(err);
     }
-  }, 10_000);
+  }, 5_000);
 
   function reloadProject() {
     layerMenu.update();
@@ -138,13 +146,18 @@ async function main() {
   });
   window.addEventListener("dragover", (e) => e.preventDefault());
   window.addEventListener("beforeunload", async (e) => {
+    if (GLOBALS.FORCE_EXIT) {
+      console.warn("force exit");
+      return;
+    }
+
     e.preventDefault();
+    e.returnValue = "";
     try {
       await persistTemporaryState(rkgk, brushes);
     } catch (err) {
       console.error(err);
     }
-    e.returnValue = "";
   });
 }
 

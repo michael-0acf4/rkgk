@@ -2,7 +2,6 @@ import { Brush, canvasToImage } from "./rkgk.js";
 
 /**
  * @param {string} url
- * @param {string} color
  */
 export function texFromImage(url) {
   return async (color, hardness) => {
@@ -22,7 +21,7 @@ export function texFromImage(url) {
     ctx.globalCompositeOperation = "source-in";
     ctx.fillStyle = color;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.globalCompositeOperation = "source-over";
+    // ctx.globalCompositeOperation = "source-over";
 
     return await canvasToImage(canvas);
   };
@@ -95,6 +94,7 @@ export function texProceduralMarker(size) {
     return await canvasToImage(canvas);
   };
 }
+
 /**
  * @param {number} size
  */

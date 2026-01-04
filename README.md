@@ -16,6 +16,9 @@ No installs, all you need is a server that can render static files.
 ```bash
 # You most likely already have Python installed on your machine
 # Just run this at the root directory and open http://localhost:4242
+
+git clone https://github.com/michael-0acf4/rkgk.git
+cd rkgk
 python -m http.server 4242
 ```
 
@@ -51,7 +54,7 @@ Simply drag & drop any image to the window
 ![doro_chan](misc/doro_chan.png)
 
 
-Checkout the [rkgk demo](https://rkgk.afmichael.dev/demo) to see the core features in action, or maybe try [Rkgk UI](https://rkgk.afmichael.dev) for a full fledged semi-professional digital art app.
+Checkout the [rkgk demo](https://rkgk.afmichael.dev/demo) to see the core features in action, or maybe try [Rkgk UI](https://rkgk.afmichael.dev) for a full-fledged semi-professional digital art app.
 
 
 # Boring details
@@ -72,7 +75,7 @@ rkgk binary file format is also dumb simple and designed to be easy to extend.
 
 The idea is that within the `meta json string`, we can just refer to the offset of the encrypted images.
 
-For a complete understanding, it would be easier to directly read the implementation in [rkgk.js](./src/rkgk/rkgk.js), it is very short, it's used within the `Serializer` class.
+For a complete understanding, it would be easier to directly read the implementation in [rkgk.js](./src/rkgk/rkgk.js), It is very short, and is being used within the `Serializer` class.
 
 This is the specification for the current version (v2). It is a hybrid binary/JSON format for storing layered canvas projects with AES-GCM encryption.
 

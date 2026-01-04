@@ -1,16 +1,17 @@
-import { Brush, RkgkEngine } from "./rkgk/rkgk.js";
-import { texProceduralMarker } from "./rkgk/rkgk-brushes.js";
+import { Brush, RkgkEngine, stdStaticPapers } from "./rkgk/rkgk.js";
+import { texProceduralHard, texProceduralMarker } from "./rkgk/rkgk-brushes.js";
 
 async function main() {
   const texMarker = texProceduralMarker(10);
   const brush = new Brush({
     name: "Awesome Marker",
     // Texture spacing in between two points
-    spacing: 0.25,
+    spacing: 0.1,
     // Texture will be normalized in drawing space but higher size mean higher texture fidelity
     size: 10,
     // A texture loader generates a functino that can output an Image object given a color on the fly
-    textureLoader: texMarker,
+    // textureLoader: texMarker,
+    textureLoader: texProceduralHard(10),
     // Angle at which the texture is drawn
     angleTransform: (_t) => Math.random() * 2 * Math.PI,
     // After applying the texture orientation, we can do a rich deformation with tablet pen tilt data
@@ -23,7 +24,7 @@ async function main() {
   });
 
   // Compiles a brush texture into a concrete colored Image object
-  await brush.setFilter("#dc2626fa");
+  await brush.setFilter("black");
 
   const canvas = document.getElementById("canvas");
   const rkgk = new RkgkEngine(canvas);
@@ -31,6 +32,15 @@ async function main() {
   rkgk.currentLayerId = rkgk.addLayer();
   rkgk.currentLayerId = rkgk.addLayer();
   rkgk.currentLayerId = rkgk.addLayer();
+
+  // We can set a paper type
+  const papers = stdStaticPapers();
+  let i = 0;
+  for (const layer of rkgk.layers) {
+    layer.paper = papers[i % papers.length];
+    await layer.paper.setParameters(canvas.width, canvas.height, 1.0);
+    i++;
+  }
 
   // Rkgk will bind pointer related events to the canvas
   rkgk.setupDOMEvents({
@@ -54,7 +64,11 @@ async function main() {
   }
 
   async function updateCanvasThumb() {
-    const img = await rkgk.getLayer(rkgk.currentLayerId).getThumbnail(120, 100);
+    const layer = rkgk.getLayer(rkgk.currentLayerId);
+    const img = await layer.getThumbnail(120, 100);
+    const paperType = document.getElementById("paper-type");
+    paperType.innerText = `Paper: ${layer.paper.name}`;
+
     const div = document.getElementById("thumb-layer");
     div.innerHTML = "";
     img.drawable.style = "border: 2px solid black";

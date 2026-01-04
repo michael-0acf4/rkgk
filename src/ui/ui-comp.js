@@ -1,6 +1,13 @@
-import { Layer } from "../rkgk/rkgk.js";
+import { GLOBALS } from "../index.js";
+import { Layer, stdStaticPapers } from "../rkgk/rkgk.js";
 import { clearTemporaryState } from "./ui-persist.js";
-import { createSpacer, helpWindow, projectOptionsWindow } from "./ui-window.js";
+import {
+  acceptWindow,
+  createSpacer,
+  helpWindow,
+  projectOptionsWindow,
+  startSpin,
+} from "./ui-window.js";
 
 export function getLayerContainerId({ id }) {
   return ["layer", "container", id].join("-");
@@ -48,9 +55,12 @@ class LayerComponent {
     const remove = document.createElement("button");
     remove.className = "layer-flag";
     remove.textContent = "x";
-    remove.onclick = (e) => {
+    remove.onclick = async (e) => {
       e.stopPropagation();
-      this.onRemoveLayer?.(this.layer.id);
+      const userAccepts = await acceptWindow("Delete layer", "Are you sure?");
+      if (userAccepts) {
+        this.onRemoveLayer?.(this.layer.id);
+      }
     };
 
     const visible = document.createElement("button");
@@ -116,6 +126,55 @@ export class LayerMenu extends VerticalMenu {
     this.opacityInput.oninput = () => {
       const layer = this.rkgk.getLayer(this.rkgk.currentLayerId);
       if (layer) layer.opacity = +this.opacityInput.value;
+      updateTitle(this.opacityInput, "Layer Opacity");
+    };
+
+    // Paper Selection
+    this.paperSelect = document.createElement("select");
+    this.paperSelect.className = "select";
+    const defaultOption = document.createElement("option");
+    defaultOption.value = "";
+    defaultOption.textContent = "Default Paper";
+    this.paperSelect.appendChild(defaultOption);
+
+    stdStaticPapers().forEach((paper) => {
+      const option = document.createElement("option");
+      option.value = paper.id;
+      option.textContent = paper.name;
+      this.paperSelect.appendChild(option);
+    });
+
+    this.paperSelect.onchange = async () => {
+      const layer = this.rkgk.getLayer(this.rkgk.currentLayerId);
+      if (layer) {
+        const paperId = this.paperSelect.value;
+        const currentStrength = +this.paperStrength.value;
+
+        await layer.setPaperByPaperId(paperId, currentStrength);
+
+        if (layer.paper) {
+          this.paperStrength.value = layer.paper.strength ?? 1.0;
+          this.updatePaperParameters(layer);
+          updateTitle(this.paperStrength, "Paper Strength");
+        }
+      }
+    };
+
+    // Strength Slider
+    this.paperStrength = document.createElement("input");
+    this.paperStrength.type = "range";
+    this.paperStrength.className = "slider";
+    this.paperStrength.min = 0;
+    this.paperStrength.max = 1;
+    this.paperStrength.step = 0.01;
+    this.paperStrength.oninput = () => {
+      const layer = this.rkgk.getLayer(this.rkgk.currentLayerId);
+      if (layer && layer.paper) {
+        const val = +this.paperStrength.value;
+        layer.paper.strength = val;
+        this.updatePaperParameters(layer);
+        updateTitle(this.paperStrength, "Paper Strength");
+      }
     };
 
     this.layerList = document.createElement("div");
@@ -123,7 +182,35 @@ export class LayerMenu extends VerticalMenu {
 
     this.add(this.addBtn);
     this.add(this.opacityInput);
+    this.add(this.paperSelect);
+    this.add(this.paperStrength);
     this.add(this.layerList);
+  }
+
+  updatePaperParameters(layer) {
+    if (layer.paper && typeof layer.paper.setParameters === "function") {
+      const { width, height } = this.rkgk.renderer.canvas;
+      const strength = layer.paper.strength ?? 1.0;
+      const sp = startSpin();
+      layer.paper.setParameters(
+        width,
+        height,
+        strength,
+      ).then(() => {
+        sp.unload();
+      });
+    }
+  }
+
+  syncUI(layer) {
+    if (!layer) return;
+    this.opacityInput.value = layer.opacity ?? 1;
+    updateTitle(this.opacityInput, "Layer Opacity");
+
+    // layer.paper is the source of truth for current state
+    this.paperSelect.value = layer.paper?.id ?? "";
+    this.paperStrength.value = layer.paper?.strength ?? 1.0;
+    updateTitle(this.paperStrength, "Paper Strength");
   }
 
   update() {
@@ -156,8 +243,7 @@ export class LayerMenu extends VerticalMenu {
     list.replaceChildren(fragment);
 
     const activeLayer = layers.find((l) => l.id === this.rkgk.currentLayerId);
-    if (activeLayer) this.opacityInput.value = activeLayer.opacity ?? 1;
-
+    this.syncUI(activeLayer);
     this.updateActive();
   }
 
@@ -197,7 +283,7 @@ export class LayerMenu extends VerticalMenu {
 
     row.onclick = () => {
       this.rkgk.currentLayerId = layer.id;
-      this.opacityInput.value = layer.opacity ?? 1;
+      this.syncUI(layer);
       this.updateActive();
     };
 
@@ -252,8 +338,10 @@ export class BrushMenu extends VerticalMenu {
     size.oninput = () => {
       this.activeSettings.size = +size.value;
       updateActiveBrushLabel();
+      updateTitle(size, "Brush Size", false);
       this.emitChange();
     };
+    updateTitle(size, "Brush Size", "px");
 
     const hardness = document.createElement("input");
     hardness.type = "range";
@@ -266,8 +354,10 @@ export class BrushMenu extends VerticalMenu {
     hardness.oninput = () => {
       this.activeSettings.hardness = +hardness.value;
       updateActiveBrushLabel();
+      updateTitle(hardness, "Brush Hardness");
       this.emitChange();
     };
+    updateTitle(hardness, "Brush Hardness");
 
     const brushLabel = document.createElement("div");
     const updateActiveBrushLabel = () => {
@@ -426,7 +516,6 @@ export class CanvasViewport {
     this.onPan?.({ x: this.state.x, y: this.state.y });
   }
 
-
   update() {
     const nextCanvas = this.rkgk?.renderer?.canvas ?? null;
     if (nextCanvas === this.canvas) return;
@@ -531,8 +620,17 @@ export class CanvasViewport {
         "New",
         "Create new project",
         async () => {
-          await clearTemporaryState();
-          window.location.reload();
+          const userAccepts = await acceptWindow(
+            "New project",
+            "The current state will not be saved. Are you sure?",
+          );
+          if (userAccepts) {
+            GLOBALS.FORCE_EXIT = true;
+            await clearTemporaryState();
+            window.location.reload();
+          } else {
+            console.warn("New project creation cancelled");
+          }
         },
       ),
       btn(
@@ -674,4 +772,16 @@ export async function updateBrushThumbnail(brush) {
   const div = document.getElementById(elId);
 
   await replaceThumbSrc(div, await brush.getThumbnail(120, 40));
+}
+
+/**
+ * @param {HTMLElement} el
+ * @param {string} label
+ * @param {string} customUnits
+ */
+function updateTitle(el, label, customUnits = null) {
+  let value = customUnits
+    ? `${(el.value || "")}${customUnits}`
+    : `${Math.round((el?.value || 1.0) * 100)}%`;
+  el.title = `${label}: ${value}`;
 }

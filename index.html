@@ -189,6 +189,11 @@
         accent-color: var(--thumb-active-color);
       }
 
+      .select {
+        background-color: var(--floating-menu-control-color);
+        color: var(--floating-menu-text-color);
+      }
+
       input[type="color"] {
         width: var(--menu-wdith);
         height: 32px;
@@ -229,7 +234,7 @@
 
       .basic-item-container {
         cursor: pointer;
-        background: var(--floating-menu-control-color);
+        background: var(--floating-menu-background-color);
         border: none;
         color: var(--floating-menu-text-color);
         padding: 2px 6px;
@@ -343,6 +348,10 @@
         -webkit-user-select: none; /* Safari/Chrome */
         -moz-user-select: none; /* Firefox */
         -ms-user-select: none; /* IE/Edge */
+      }
+
+      .is-loading, .is-loading * {
+        cursor: wait !important;
       }
     </style>
   </head>
