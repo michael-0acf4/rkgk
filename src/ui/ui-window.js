@@ -13,6 +13,7 @@ export class FloatingWindow {
       height = null,
       showCancel = true,
       makeUnique = false,
+      minimal = false,
       buttonLabels = {
         ok: "Ok",
         cancel: "Cancel",
@@ -20,6 +21,7 @@ export class FloatingWindow {
       onClose,
     } = {},
   ) {
+    this.minimal = minimal;
     this.title = title;
     if (uniqueWindows.has(this.title)) {
       this.skip = true;
@@ -55,11 +57,12 @@ export class FloatingWindow {
     this.header = document.createElement("div");
     this.header.className = "floating-window-header";
 
-    const titleEl = document.createElement("span");
-    titleEl.className = "floating-window-title";
-    titleEl.textContent = title;
-    this.header.appendChild(titleEl);
-
+    if (!this.minimal) {
+      const titleEl = document.createElement("span");
+      titleEl.className = "floating-window-title";
+      titleEl.textContent = title;
+      this.header.appendChild(titleEl);
+    }
     this.content = document.createElement("div");
     this.content.className = "floating-window-content";
 
@@ -83,7 +86,10 @@ export class FloatingWindow {
     this.resizeHandle.className = "floating-window-resize-handle";
     this.el.appendChild(this.resizeHandle);
 
-    this.el.appendChild(this.header);
+    if (!this.minimal) {
+      this.el.appendChild(this.header);
+    }
+  
     this.el.appendChild(this.content);
     this.el.appendChild(this.footer);
     this.root.appendChild(this.el);
@@ -463,7 +469,7 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
 
 /**
  * @param {File} file
-//  * @param {DragEvent} position
+ * @param {DragEvent} position
  */
 export function referenceWindow(file, position) {
   const url = URL.createObjectURL(file);
@@ -475,6 +481,7 @@ export function referenceWindow(file, position) {
     y: position.clientY,
     showCancel: false,
     makeUnique: true,
+    minimal: true,
     buttonLabels: {
       ok: "Quit",
       cancel: "Cancel",
