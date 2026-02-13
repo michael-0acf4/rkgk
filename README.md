@@ -16,7 +16,6 @@ No installs, all you need is a server that can render static files.
 ```bash
 # You most likely already have Python installed on your machine
 # Just run this at the root directory and open http://localhost:4242
-
 git clone https://github.com/michael-0acf4/rkgk.git
 cd rkgk
 python -m http.server 4242
@@ -123,6 +122,6 @@ This is the specification for the current version (v2). It is a hybrid binary/JS
  ```
 
 * File generation:
-1. Key Derivation: PBKDF2 (SHA-256, 150k iterations)
-2. Algorithm: AES-GCM (256-bit key)
-3. Salt: Unique per layer, which is mixed with an optional APP_SIGNATURE at derivation time
+  - Key Derivation: PBKDF2 (SHA-256, 150k iterations)
+  - Algorithm: AES-GCM (256-bit key)
+  - Salt: Unique per layer, which is mixed with an optional APP_SIGNATURE at derivation time

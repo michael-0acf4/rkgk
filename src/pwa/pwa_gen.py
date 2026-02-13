@@ -2,7 +2,7 @@ import os
 import datetime
 import fnmatch
 
-target_items = ["src", "textures", "index.html", "!*.py", "!demo.js", "!pwa_gen.py"]
+target_items = ["src", "textures", "index.html", "!*.py", "!demo.js", "!pwa_gen.py", "!sw.js"]
 output_file = "src/pwa/sw.js"
 
 include_items = [i for i in target_items if not i.startswith("!")]

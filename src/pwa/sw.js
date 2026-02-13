@@ -1,13 +1,11 @@
-const CACHE_NAME = "v-20260213-214241";
+const CACHE_NAME = "v-20260213-234532";
 const ASSETS = [
   "/",
   "/src/index.js",
   "/src/pwa/icon-192.png",
   "/src/pwa/icon-32.png",
   "/src/pwa/icon-512.png",
-  "/src/pwa/icon.png",
   "/src/pwa/manifest.json",
-  "/src/pwa/sw.js",
   "/src/rkgk/rkgk-brushes.js",
   "/src/rkgk/rkgk.js",
   "/src/ui/ui-comp.js",

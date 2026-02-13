@@ -2,10 +2,45 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/src/pwa/icon-32.png" sizes="32x32">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Rkgk UI lets you sketch anything, on any device, instantly. No install. Just open and draw." />
+    <meta name="keywords" content="sketch, drawing, whiteboard, pwa, browser drawing, online sketch, canvas tool" />
+    <meta name="author" content="Rkgk UI" />
+
+    <!-- official -->
+    <link rel="canonical" href="https://rkgk.afmichael.dev/" />
+
+    <!-- PWA -->
     <link rel="manifest" href="/src/pwa/manifest.json" />
     <meta name="theme-color" content="#23667e" />
-    <meta name="description" content="Rkgk UI, sketch anything, on any device, on the fly. All you need is a browser.">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Rkgk UI">
+
+    <!-- icons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/src/pwa/icon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/src/pwa/icon-192.png" />
+    <link rel="apple-touch-icon" href="/src/pwa/icon-192.png" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Rkgk UI — Sketch anything, anywhere, instantly" />
+    <meta property="og:description" content="Sketch anything on any device. Open the page and start drawing." />
+    <meta property="og:image" content="https://rkgk.afmichael.dev/src/pwa/icon-192.png" />
+    <meta property="og:url" content="https://rkgk.afmichael.dev/src/pwa/icon-192.png" />
+    <meta property="og:site_name" content="Rkgk UI" />
+
+    <!-- twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Rkgk UI — Sketch anything, anywhere, instantly" />
+    <meta name="twitter:description" content="Sketch anything on any device. No install required." />
+    <meta name="twitter:image" content="https://rkgk.afmichael.dev/src/pwa/icon-192.png" />
+
+    <!-- robots -->
+    <meta name="robots" content="index, follow" />
+
     <title>Rkgk UI</title>
     <style>
       :root {
@@ -372,5 +407,14 @@
     </div>
 
     <script type="module" src="src/index.js"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("/src/pwa/sw.js")
+            .then(reg => console.log("SW registered:", reg.scope))
+            .catch(err => console.log("SW registration failed:", err));
+        });
+      }
+    </script>
   </body>
 </html>
