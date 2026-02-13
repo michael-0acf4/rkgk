@@ -641,6 +641,7 @@ export class CanvasViewport {
       btn("?", "Help", () => helpWindow()),
       createSpacer(48),
       btn("<", "Undo (Ctrl+Z)", () => this.onRedo?.("backward")),
+      btn(">", "Redo (Ctrl+Y)", () => this.onRedo?.("forward")),
       btn(
         "-",
         "Zoom out",
@@ -652,7 +653,6 @@ export class CanvasViewport {
         "Zoom in",
         () => this.zoomAt(1.1, window.innerWidth / 2, window.innerHeight / 2),
       ),
-      btn(">", "Redo (Ctrl+Y)", () => this.onRedo?.("forward")),
     );
 
     const parent = document.body;
@@ -662,8 +662,11 @@ export class CanvasViewport {
 
   bind() {
     this.onWheel = (e) => {
-      if (!e.altKey) return;
       e.preventDefault();
+      if (!e.altKey) {
+        this.pan(0, -e.deltaY / 5);
+        return;
+      }
 
       const factor = e.deltaY < 0 ? 1.1 : 0.9;
       this.zoomAt(factor, e.clientX, e.clientY);
