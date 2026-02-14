@@ -136,34 +136,67 @@ export class FloatingWindow {
   }
 
   #bindDrag() {
-    this.el.addEventListener("pointerdown", (e) => {
-      // HACK: drag "steals" mouse inputs, also click bubbles up to the parent
-      // making clicking clickable components impossible when the parent is dragged
-      const ignoredTags = ["BUTTON", "INPUT", "TEXTAREA", "SELECT", "A"];
+    // HACK: drag "steals" mouse inputs, also click bubbles up to the parent
+    // making clicking clickable components impossible when the parent is dragged
+    const ignoredTags = ["BUTTON", "INPUT", "TEXTAREA", "SELECT", "A"];
+    this.dragging = false;
+    this.offset = { x: 0, y: 0 };
+    const onPointerDown = (e) => {
       if (
         ignoredTags.includes(e.target.tagName) || e.target.closest("button")
-      ) {
-        return;
-      }
+      ) return;
       if (e.target === this.resizeHandle) return;
       this.dragging = true;
-      this.offset.x = e.clientX - this.el.offsetLeft;
-      this.offset.y = e.clientY - this.el.offsetTop;
+      const rect = this.el.getBoundingClientRect();
+      this.offset.x = e.clientX - rect.left;
+      this.offset.y = e.clientY - rect.top;
 
       this.el.setPointerCapture(e.pointerId);
-    });
+      e.preventDefault();
+    };
 
-    this.el.addEventListener("pointermove", (e) => {
+    const onPointerMove = (e) => {
       if (!this.dragging) return;
 
       this.el.style.left = `${e.clientX - this.offset.x}px`;
       this.el.style.top = `${e.clientY - this.offset.y}px`;
-    });
 
-    this.el.addEventListener("pointerup", (e) => {
+      e.preventDefault();
+    };
+
+    const onPointerUp = (e) => {
       this.dragging = false;
       this.el.releasePointerCapture(e.pointerId);
-    });
+    };
+
+    this.el.addEventListener("pointerdown", onPointerDown);
+    this.el.addEventListener("pointermove", onPointerMove);
+    this.el.addEventListener("pointerup", onPointerUp);
+    this.el.addEventListener("pointercancel", onPointerUp);
+
+    // HACK: see rkgk.js
+    // Chrome only issues, very aggressive on touch gestures
+    this.el.addEventListener(
+      "touchstart",
+      (e) => {
+        if (!ignoredTags.includes(e.target.tagName)) e.preventDefault();
+      },
+      { passive: false },
+    );
+    this.el.addEventListener(
+      "touchmove",
+      (e) => {
+        if (this.dragging) e.preventDefault();
+      },
+      { passive: false },
+    );
+    this.el.addEventListener(
+      "touchend",
+      (e) => {
+        if (this.dragging) e.preventDefault();
+      },
+      { passive: false },
+    );
   }
 
   #bindResize() {
@@ -513,14 +546,18 @@ export function referenceWindow(file, position) {
   });
 }
 
-function isMobile() {
-  return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(
-    navigator.userAgent,
-  );
-}
-
 export function directionControlWindow(
-  { onLeft, onRight, onUp, onDown, onUndo, onRedo, onReset },
+  {
+    onLeft,
+    onRight,
+    onUp,
+    onDown,
+    onUndo,
+    onRedo,
+    onReset,
+    onZoomIn,
+    onZoomOut,
+  },
 ) {
   const win = new FloatingWindow(document.body, {
     title: "Move Controls",
@@ -531,13 +568,6 @@ export function directionControlWindow(
     buttonLabels: { ok: "Close" },
   });
 
-  if (isMobile()) {
-    win.el.style.left = "auto";
-    win.el.style.top = "auto";
-    win.el.style.right = "20px";
-    win.el.style.bottom = "20px";
-  }
-
   win.setContent((root) => {
     root.style.padding = "12px";
     root.style.display = "flex";
@@ -545,7 +575,7 @@ export function directionControlWindow(
     root.style.gap = "12px";
     root.style.alignItems = "center";
 
-    const makeBtn = (label, handler) => {
+    const btn = (label, handler) => {
       const btn = document.createElement("button");
       btn.textContent = label;
       btn.style.width = "26px";
@@ -564,7 +594,6 @@ export function directionControlWindow(
     grid.style.gap = "6px";
     grid.style.justifyContent = "center";
     grid.style.alignItems = "center";
-    // fake pad
     const empty = () => {
       const d = document.createElement("div");
       d.style.width = "26px";
@@ -573,22 +602,22 @@ export function directionControlWindow(
     };
 
     grid.appendChild(empty());
-    grid.appendChild(makeBtn("↑", onUp));
+    grid.appendChild(btn("↑", onUp));
     grid.appendChild(empty());
 
-    grid.appendChild(makeBtn("←", onLeft));
-    grid.appendChild(makeBtn("↺", onReset));
-    grid.appendChild(makeBtn("→", onRight));
+    grid.appendChild(btn("←", onLeft));
+    grid.appendChild(btn("↺", onReset));
+    grid.appendChild(btn("→", onRight));
 
-    grid.appendChild(empty());
-    grid.appendChild(makeBtn("↓", onDown));
-    grid.appendChild(empty());
+    grid.appendChild(btn("-", onZoomOut));
+    grid.appendChild(btn("↓", onDown));
+    grid.appendChild(btn("+", onZoomIn));
 
     const historyRow = document.createElement("div");
     historyRow.style.display = "flex";
     historyRow.style.gap = "12px";
-    historyRow.appendChild(makeBtn("↶", onUndo));
-    historyRow.appendChild(makeBtn("↷", onRedo));
+    historyRow.appendChild(btn("↶", onUndo));
+    historyRow.appendChild(btn("↷", onRedo));
 
     root.appendChild(grid);
     root.appendChild(historyRow);

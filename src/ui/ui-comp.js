@@ -749,6 +749,14 @@ export class CanvasViewport {
           onReset: () => {
             this.reset();
           },
+          onZoomOut: () => {
+            const c = this.getWindowCenter();
+            this.zoomAt(0.9, c.x, c.y);
+          },
+          onZoomIn: () => {
+            const c = this.getWindowCenter();
+            this.zoomAt(1.1, c.x, c.y);
+          },
         });
       }),
       btn("?", "Help", () => helpWindow()),
