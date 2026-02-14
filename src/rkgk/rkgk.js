@@ -56,6 +56,68 @@ function getPointerData(rkgk, e) {
 }
 
 /**
+ * @param {string} color
+ * @returns {Uint8ClampedArray}
+ */
+function cssColorToRgba(color) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1;
+  canvas.height = 1;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, 1, 1);
+  return ctx.getImageData(0, 0, 1, 1).data;
+}
+
+/**
+ * @param {ImageData} imageData
+ * @param {number} startX
+ * @param {number} startY
+ * @param {Uint8ClampedArray} fillRgba
+ */
+function floodFill(imageData, startX, startY, fillRgba) {
+  const { data, width, height } = imageData;
+  const startIdx = (Math.floor(startY) * width + Math.floor(startX)) * 4;
+  const targetR = data[startIdx];
+  const targetG = data[startIdx + 1];
+  const targetB = data[startIdx + 2];
+  const targetA = data[startIdx + 3];
+  const fillR = fillRgba[0];
+  const fillG = fillRgba[1];
+  const fillB = fillRgba[2];
+  const fillA = fillRgba[3];
+  if (
+    targetR === fillR &&
+    targetG === fillG &&
+    targetB === fillB &&
+    targetA === fillA
+  ) {
+    return;
+  }
+  const stack = [[Math.floor(startX), Math.floor(startY)]];
+  const w = width;
+  const h = height;
+  while (stack.length) {
+    const [x, y] = stack.pop();
+    if (x < 0 || x >= w || y < 0 || y >= h) continue;
+    const i = (y * w + x) * 4;
+    if (
+      data[i] !== targetR ||
+      data[i + 1] !== targetG ||
+      data[i + 2] !== targetB ||
+      data[i + 3] !== targetA
+    ) {
+      continue;
+    }
+    data[i] = fillR;
+    data[i + 1] = fillG;
+    data[i + 2] = fillB;
+    data[i + 3] = fillA;
+    stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+  }
+}
+
+/**
  * @param {OffscreenCanvas | HTMLCanvasElement} canvas
  * @param {boolean?} transparent
  */
@@ -259,6 +321,7 @@ export class Brush {
     textureLoader,
     angleTransform,
     squashTransform,
+    thumbnailBackground = null,
     pressureCurve = (p) => p,
   }) {
     this.id = randomId("brush.");
@@ -270,6 +333,7 @@ export class Brush {
     this.textureLoader = textureLoader;
     this.angleTransform = angleTransform;
     this.squashTransform = squashTransform;
+    this.thumbnailBackground = thumbnailBackground;
     this.pressureCurve = pressureCurve;
 
     this._carry = 0;
@@ -369,6 +433,10 @@ export class Brush {
   async getThumbnail(width, height) {
     const off = new OffscreenCanvas(width, height);
     const ctx = off.getContext("2d");
+    if (this.thumbnailBackground) {
+      ctx.fillStyle = this.thumbnailBackground;
+      ctx.fillRect(0, 0, width, height);
+    }
 
     const steps = 30;
     // HACK: stroke will explode otherwise
@@ -478,6 +546,24 @@ export class Layer {
   }
 
   /**
+   * @param {number} x
+   * @param {number} y
+   * @param {string} fillColor
+   */
+  fill(x, y, fillColor) {
+    const { context, canvas } = this.renderer;
+    const w = canvas.width;
+    const h = canvas.height;
+    const px = Math.floor(x);
+    const py = Math.floor(y);
+    if (px < 0 || px >= w || py < 0 || py >= h) return;
+    const imageData = context.getImageData(0, 0, w, h);
+    const fillRgba = cssColorToRgba(fillColor);
+    floodFill(imageData, px, py, fillRgba);
+    context.putImageData(imageData, 0, 0);
+  }
+
+  /**
    * @param {number} width
    * @param {number} height
    */
@@ -560,6 +646,22 @@ export class RkgkEngine {
     this.scale = null;
     /** @type {string | null} */
     this.title = null;
+    /** @type {"brush" | "bucket"} */
+    this.tool = "brush";
+    /** @type {string} */
+    this.fillColor = "#000000";
+  }
+
+  /**
+   * @param {number} x
+   * @param {number} y
+   * @param {string} color
+   */
+  fill(x, y, color) {
+    const layer = this.getLayer(this.currentLayerId);
+    if (!layer || !layer.isVisible) return;
+    layer.fill(x, y, color);
+    layer.snapshot();
   }
 
   render() {
@@ -701,6 +803,12 @@ export class RkgkEngine {
     const { state } = this.eventBUS;
     switch (event.kind) {
       case "down": {
+        if (this.tool === "bucket") {
+          this.fill(event.pointer.x, event.pointer.y, this.fillColor);
+          this.onFill?.(event.pointer);
+          return;
+        }
+
         state.drawing = true;
         state.lastPos = event.pointer;
         state.activePointerId = event.pointerId;
@@ -722,7 +830,14 @@ export class RkgkEngine {
           event.pointerId == state.activePointerId && state.drawing && layer &&
           state.lastPos
         ) {
-          if (layer.isVisible) {
+        }
+
+        if (
+          event.pointerId == state.activePointerId &&
+          state.drawing &&
+          state.lastPos
+        ) {
+          if (layer?.isVisible) {
             this.brush.stroke(
               layer.renderer.context,
               state.lastPos,
@@ -829,6 +944,7 @@ export class RkgkEngine {
   addListeners({
     onDrawingInvisbleLayer,
     onStroke,
+    onFill,
   }) {
     if (typeof onDrawingInvisbleLayer != "function") {
       throw new Error("onDrawingInvisbleLayer expected a function");
@@ -836,6 +952,7 @@ export class RkgkEngine {
 
     this.onDrawingInvisbleLayer = onDrawingInvisbleLayer;
     this.onStroke = onStroke;
+    this.onFill = onFill ?? null;
   }
 }
 

@@ -187,6 +187,7 @@ export function stdBrushes() {
       angleTransform: (_t) => Math.random() * 2 * Math.PI,
       squashTransform: (ar, _tilt) => ar,
       pressureCurve: (p) => Math.sqrt(p),
+      thumbnailBackground: "#000",
     }),
   ];
 }

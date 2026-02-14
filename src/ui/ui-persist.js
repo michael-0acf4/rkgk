@@ -70,6 +70,8 @@ export async function persistTemporaryState(rkgk, brushes) {
     SETTINGS_KEY,
     JSON.stringify({
       currentBrushName: currentBrush.name,
+      fillColor: rkgk.fillColor,
+      tool: rkgk.tool,
       brushes: brushes.map((b) => ({
         name: b.name,
         color: b.color,
@@ -101,6 +103,10 @@ export async function loadTemporaryState(rkgk, brushes) {
   // brushes
   const settings = JSON.parse(await loadFromDisk(SETTINGS_KEY));
   if (settings) {
+    if (settings.fillColor) rkgk.fillColor = settings.fillColor;
+    if (settings.tool === "bucket" || settings.tool === "brush") {
+      rkgk.tool = settings.tool;
+    }
     rkgk.brush = brushes[0];
     for (const brush of brushes) {
       if (brush.name == settings?.currentBrushName) {

@@ -4,8 +4,14 @@
     <meta charset="UTF-8" />
 
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Rkgk UI lets you sketch anything, on any device, instantly. No install. Just open and draw." />
-    <meta name="keywords" content="sketch, drawing, whiteboard, pwa, browser drawing, online sketch, canvas tool" />
+    <meta
+      name="description"
+      content="Rkgk UI lets you sketch anything, on any device, instantly. No install. Just open and draw."
+    />
+    <meta
+      name="keywords"
+      content="sketch, drawing, whiteboard, pwa, browser drawing, online sketch, canvas tool"
+    />
     <meta name="author" content="Rkgk UI" />
 
     <!-- official -->
@@ -16,27 +22,61 @@
     <meta name="theme-color" content="#23667e" />
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    >
     <meta name="apple-mobile-web-app-title" content="Rkgk UI">
 
     <!-- icons -->
-    <link rel="icon" type="image/png" sizes="32x32" href="/src/pwa/icon-32.png" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/src/pwa/icon-192.png" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/src/pwa/icon-32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="192x192"
+      href="/src/pwa/icon-192.png"
+    />
     <link rel="apple-touch-icon" href="/src/pwa/icon-192.png" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Rkgk UI — Sketch anything, anywhere, instantly" />
-    <meta property="og:description" content="Sketch anything on any device. Open the page and start drawing." />
-    <meta property="og:image" content="https://rkgk.afmichael.dev/src/pwa/icon-192.png" />
-    <meta property="og:url" content="https://rkgk.afmichael.dev/src/pwa/icon-192.png" />
+    <meta
+      property="og:title"
+      content="Rkgk UI — Sketch anything, anywhere, instantly"
+    />
+    <meta
+      property="og:description"
+      content="Sketch anything on any device. Open the page and start drawing."
+    />
+    <meta
+      property="og:image"
+      content="https://rkgk.afmichael.dev/src/pwa/icon-192.png"
+    />
+    <meta
+      property="og:url"
+      content="https://rkgk.afmichael.dev/src/pwa/icon-192.png"
+    />
     <meta property="og:site_name" content="Rkgk UI" />
 
     <!-- twitter / X -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Rkgk UI — Sketch anything, anywhere, instantly" />
-    <meta name="twitter:description" content="Sketch anything on any device. No install required." />
-    <meta name="twitter:image" content="https://rkgk.afmichael.dev/src/pwa/icon-192.png" />
+    <meta
+      name="twitter:title"
+      content="Rkgk UI — Sketch anything, anywhere, instantly"
+    />
+    <meta
+      name="twitter:description"
+      content="Sketch anything on any device. No install required."
+    />
+    <meta
+      name="twitter:image"
+      content="https://rkgk.afmichael.dev/src/pwa/icon-192.png"
+    />
 
     <!-- robots -->
     <meta name="robots" content="index, follow" />
@@ -45,12 +85,13 @@
     <style>
       :root {
         --color-border-hover: #789ec4;
+        --color-border-focused: #3a546c;
         --color-danger: #f10303;
         --color-disabled: #c7c7c7;
         --standard-global-font: system-ui, sans-serif;
         --standard-global-color: #2b7998a2;
         --menu-background-color: #f6f8fa;
-        --menu-wdith: 128px;
+        --menu-width: 128px;
         --menu-padding: 18px;
         --btn-disable: #f6f8fa;
         --thumb-layer-width: 64px;
@@ -108,32 +149,153 @@
       canvas {
         background-color: white;
         touch-action: none;
-        transform-origin: center center;
+        transform-origin: 0
+          0; /* zoom-at-point uses top-left as scale pivot */
         box-shadow: 0 0 0 1px #938282;
         cursor: crosshair;
       }
 
-      /* Vertical menus */
-      .vmenu {
+      /* Sidebar edge strip + panel */
+      .sidebar-wrap {
+        --sidebar-edge-width: 26px;
         position: absolute;
         top: 0;
         bottom: 0;
-        width: var(--menu-wdith);
+        z-index: 10;
+        display: flex;
+        overflow: hidden;
+        width: var(--sidebar-edge-width);
+        transition: width 0.1s ease-out;
+      }
+
+      .sidebar-wrap.open {
+        width: calc(
+          var(--sidebar-edge-width) + var(--menu-width)
+            + 2 * var(--menu-padding)
+        );
+      }
+
+      .sidebar-edge {
+        flex-shrink: 0;
+        width: var(--sidebar-edge-width);
+        min-width: var(--sidebar-edge-width);
+        background: var(--thumb-active-border-color);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        touch-action: manipulation;
+      }
+
+      .sidebar-edge::after {
+        content: "";
+        width: 0;
+        height: 0;
+        border: 5px solid transparent;
+        opacity: 0.7;
+      }
+
+      .sidebar-left .sidebar-edge::after {
+        border-left-color: black;
+        border-right-width: 0;
+      }
+
+      .sidebar-right .sidebar-edge::after {
+        border-right-color: black;
+        border-left-width: 0;
+      }
+
+      .sidebar-wrap.open .sidebar-edge {
+        background-color: var(--color-border-focused);
+      }
+
+      .sidebar-wrap.open .sidebar-edge::after {
+        opacity: 0.8;
+      }
+
+      .sidebar-panel {
+        flex: 0 0 auto;
+        width: calc(var(--menu-width) + 2 * var(--menu-padding));
+        display: flex;
+        flex-direction: column;
+        overflow: auto;
+        min-height: 0;
+      }
+
+      .sidebar-close {
+        flex-shrink: 0;
+        width: 100%;
+        padding: 4px;
+        border: none;
+        background: rgba(0, 0, 0, 0.08);
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1;
+        opacity: 0.8;
+      }
+
+      .sidebar-close:hover {
+        background: rgba(0, 0, 0, 0.12);
+        opacity: 1;
+      }
+
+      .sidebar-panel .vmenu {
+        min-height: 0;
+      }
+
+      .sidebar-panel .vmenu.right {
+        flex: 1;
+        min-height: 0;
+      }
+
+      .sidebar-left {
+        left: 0;
+      }
+
+      .sidebar-left .sidebar-panel .vmenu {
+        border-radius: 0 6px 6px 0;
+      }
+
+      .sidebar-right {
+        right: 0;
+        flex-direction: row-reverse;
+      }
+
+      .sidebar-right .sidebar-panel .vmenu {
+        border-radius: 6px 0 0 6px;
+      }
+
+      @media (hover: none) {
+        .sidebar-wrap {
+          --sidebar-edge-width: 28px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .sidebar-wrap {
+          --sidebar-edge-width: 32px;
+        }
+      }
+
+      /* Vertical menus */
+      .vmenu {
+        position: relative;
+        flex-shrink: 0;
+        width: var(--menu-width);
+        top: 0;
+        bottom: 0;
         padding: var(--menu-padding);
         display: flex;
         flex-direction: column;
         gap: 8px;
         background: var(--menu-background-color);
-        z-index: 10;
       }
 
       .vmenu.left {
-        left: 0;
         border-right: 1px solid #ccc;
       }
 
       .vmenu.right {
-        right: 0;
         border-left: 1px solid #ccc;
       }
 
@@ -159,6 +321,73 @@
         height: var(--thumb-brush-height); /* keep same values on ui-comp */
       }
 
+      .thumb-brush-wrap {
+        position: relative;
+        display: inline-block;
+      }
+
+      .thumb-brush-wrap .thumb-brush {
+        display: block;
+      }
+
+      .brush-settings-btn {
+        position: absolute;
+        bottom: 2px;
+        right: 2px;
+        width: 22px;
+        height: 22px;
+        padding: 0;
+        border: none;
+        border-radius: 3px;
+        background: rgba(0, 0, 0, 0.5);
+        color: rgba(0, 0, 0, 0.75);
+        font-size: 12px;
+        line-height: 1;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .brush-settings-btn:hover {
+        background: rgba(0, 0, 0, 0.75);
+      }
+
+      .brush-settings-popover {
+        position: fixed;
+        z-index: 10000;
+        min-width: 140px;
+        padding: 8px;
+        background: var(--menu-background-color);
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        display: none;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .brush-settings-popover.open {
+        display: flex;
+      }
+
+      .brush-settings-popover .popover-title {
+        font-size: 12px;
+        font-weight: bold;
+        margin-bottom: 2px;
+      }
+
+      .brush-settings-popover label {
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .brush-settings-popover label span {
+        min-width: 52px;
+      }
+
       .thumb-brush, .thumb-layer {
         border: 2px solid #b7b7b7;
         border-radius: 2px;
@@ -169,6 +398,38 @@
         /*  background: var(--thumb-active-color);  */
         border-color: var(--thumb-active-border-color);
         border-width: 4px;
+      }
+
+      .thumb-bucket {
+        width: 24px;
+        font-size: 16px;
+        border: 2px solid #b7b7b7;
+      }
+
+      .thumb-bucket.active {
+        border-color: var(--thumb-active-border-color);
+        border-width: 4px;
+      }
+
+      .color-swatches {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+
+      .color-swatch {
+        width: 16px;
+        height: 16px;
+        padding: 0;
+        border: 1px solid rgba(0, 0, 0, 0.3);
+        border-radius: 3px;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+
+      .color-swatch:hover {
+        border-color: var(--color-border-hover);
+        transform: scale(1.1);
       }
 
       .layer-list {
@@ -234,7 +495,7 @@
       }
 
       input[type="color"] {
-        width: var(--menu-wdith);
+        width: var(--menu-width);
         height: 32px;
         padding: 0;
         border: none;
@@ -242,7 +503,7 @@
 
       .canvas-controls {
         position: absolute;
-        top: 10px;
+        top: 2px;
         left: 50%;
         transform: translateX(-50%);
         display: flex;
@@ -402,8 +663,34 @@
           <canvas id="canvas" width="1000" height="1000"></canvas>
         </div>
       </div>
-      <div id="brushMenu" class="vmenu left no-select"></div>
-      <div id="layerMenu" class="vmenu right no-select"></div>
+      <div class="sidebar-wrap sidebar-left" aria-label="Brushes">
+        <div class="sidebar-edge" aria-hidden="true" title="Brushes"></div>
+        <div class="sidebar-panel">
+          <button
+            type="button"
+            class="sidebar-close"
+            title="Close panel"
+            aria-label="Close"
+          >
+            -
+          </button>
+          <div id="brushMenu" class="vmenu left no-select"></div>
+        </div>
+      </div>
+      <div class="sidebar-wrap sidebar-right" aria-label="Layers">
+        <div class="sidebar-edge" aria-hidden="true" title="Layers"></div>
+        <div class="sidebar-panel">
+          <button
+            type="button"
+            class="sidebar-close"
+            title="Close panel"
+            aria-label="Close"
+          >
+            -
+          </button>
+          <div id="layerMenu" class="vmenu right no-select"></div>
+        </div>
+      </div>
     </div>
 
     <script type="module" src="src/index.js"></script>
@@ -411,8 +698,10 @@
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker.register("/src/pwa/sw.js")
-            .then(reg => console.log("SW registered:", reg.scope))
-            .catch(err => console.log("SW registration failed:", err));
+            .then((reg) => console.log("SW registered:", reg.scope))
+            .catch((err) =>
+              console.log("SW registration failed:", err)
+            );
         });
       }
     </script>

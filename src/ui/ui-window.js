@@ -2,6 +2,34 @@ import { Serializer } from "../rkgk/rkgk.js";
 
 const uniqueWindows = new Set();
 
+/**
+ * @param {import("../rkgk/rkgk.js").RkgkEngine}
+ * @param {{ password?: string, filename?: string }}
+ */
+export async function saveProjectAsFile(rkgk, options = {}) {
+  const password = options.password ?? "";
+  const filename = options.filename ?? rkgk.title ?? "rkgk_untitled";
+  const sp = startSpin();
+  try {
+    const serializer = new Serializer(password);
+    const projectData = await serializer.serialize(rkgk);
+    const blob = new Blob([projectData], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${filename}.rkgk`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("Failed to save/export project:", err);
+    errorWindow(String(err));
+  } finally {
+    sp.unload();
+  }
+}
+
 export class FloatingWindow {
   constructor(
     root = document.body,
@@ -89,7 +117,7 @@ export class FloatingWindow {
     if (!this.minimal) {
       this.el.appendChild(this.header);
     }
-  
+
     this.el.appendChild(this.content);
     this.el.appendChild(this.footer);
     this.root.appendChild(this.el);
@@ -108,34 +136,67 @@ export class FloatingWindow {
   }
 
   #bindDrag() {
-    this.el.addEventListener("pointerdown", (e) => {
-      // HACK: drag "steals" mouse inputs, also click bubbles up to the parent
-      // making clicking clickable components impossible when the parent is dragged
-      const ignoredTags = ["BUTTON", "INPUT", "TEXTAREA", "SELECT", "A"];
+    // HACK: drag "steals" mouse inputs, also click bubbles up to the parent
+    // making clicking clickable components impossible when the parent is dragged
+    const ignoredTags = ["BUTTON", "INPUT", "TEXTAREA", "SELECT", "A"];
+    this.dragging = false;
+    this.offset = { x: 0, y: 0 };
+    const onPointerDown = (e) => {
       if (
         ignoredTags.includes(e.target.tagName) || e.target.closest("button")
-      ) {
-        return;
-      }
+      ) return;
       if (e.target === this.resizeHandle) return;
       this.dragging = true;
-      this.offset.x = e.clientX - this.el.offsetLeft;
-      this.offset.y = e.clientY - this.el.offsetTop;
+      const rect = this.el.getBoundingClientRect();
+      this.offset.x = e.clientX - rect.left;
+      this.offset.y = e.clientY - rect.top;
 
       this.el.setPointerCapture(e.pointerId);
-    });
+      e.preventDefault();
+    };
 
-    this.el.addEventListener("pointermove", (e) => {
+    const onPointerMove = (e) => {
       if (!this.dragging) return;
 
       this.el.style.left = `${e.clientX - this.offset.x}px`;
       this.el.style.top = `${e.clientY - this.offset.y}px`;
-    });
 
-    this.el.addEventListener("pointerup", (e) => {
+      e.preventDefault();
+    };
+
+    const onPointerUp = (e) => {
       this.dragging = false;
       this.el.releasePointerCapture(e.pointerId);
-    });
+    };
+
+    this.el.addEventListener("pointerdown", onPointerDown);
+    this.el.addEventListener("pointermove", onPointerMove);
+    this.el.addEventListener("pointerup", onPointerUp);
+    this.el.addEventListener("pointercancel", onPointerUp);
+
+    // HACK: see rkgk.js
+    // Chrome only issues, very aggressive on touch gestures
+    this.el.addEventListener(
+      "touchstart",
+      (e) => {
+        if (!ignoredTags.includes(e.target.tagName)) e.preventDefault();
+      },
+      { passive: false },
+    );
+    this.el.addEventListener(
+      "touchmove",
+      (e) => {
+        if (this.dragging) e.preventDefault();
+      },
+      { passive: false },
+    );
+    this.el.addEventListener(
+      "touchend",
+      (e) => {
+        if (this.dragging) e.preventDefault();
+      },
+      { passive: false },
+    );
   }
 
   #bindResize() {
@@ -182,13 +243,12 @@ export function createSpacer(width = 8) {
 /**
  * @param {string} title
  * @param {string} message
- * @returns {Promise<boolean>}
  */
 export function acceptWindow(title, message) {
   return new Promise((resolve, _) => {
     const accept = new FloatingWindow(document.body, {
       title,
-      width: 420,
+      width: 360,
       showCancel: true,
       onClose: resolve,
       makeUnique: true,
@@ -205,7 +265,7 @@ export function acceptWindow(title, message) {
 export function helpWindow() {
   const shortcuts = new FloatingWindow(document.body, {
     title: "Help",
-    width: 420,
+    width: 360,
     showCancel: false,
     makeUnique: true,
   });
@@ -217,8 +277,11 @@ export function helpWindow() {
       <p><b>Zoom</b>: Alt+Scroll</p>
       <p><b>Reset</b>: Alt+R, or by <b>clicking</b> on the zoom value</p>
       <p><b>Undo/Redo</b>: Ctrl+Z/Ctrl+Y</p>
-      <br/>
+      <p><b>Save</b>: Ctrl+S (export project as .rkgk file)</p>
       <p><b>References</b>: you can <b>drag & drop</b> images to use as a reference</p>
+      <br/>
+      <i>Contact: rkgk@afmichael.dev</i>
+      <br/>
     `;
     root.appendChild(txt);
   });
@@ -233,7 +296,7 @@ export function errorWindow(mainError = "Unknown error", details = []) {
 
   const shortcuts = new FloatingWindow(document.body, {
     title: "An error has occured",
-    width: 420,
+    width: 360,
     height: 420,
     showCancel: false,
     makeUnique: false,
@@ -248,6 +311,24 @@ export function errorWindow(mainError = "Unknown error", details = []) {
       details.map((detail) => `<p> - ${stringifyError(detail)} </p>`).join("")
     }
       </p>
+    `;
+    root.appendChild(txt);
+  });
+}
+
+export function smallTipWindow(title, htmlMessage) {
+  const tip = new FloatingWindow(document.body, {
+    title,
+    width: 240,
+    showCancel: false,
+    makeUnique: true,
+    buttonLabels: { ok: "Close" },
+  });
+
+  tip.setContent((root) => {
+    const txt = document.createElement("div");
+    txt.innerHTML = `
+      <p>${htmlMessage}</p>
     `;
     root.appendChild(txt);
   });
@@ -274,7 +355,7 @@ export function flashElement(el, color, duration = 500) {
 export function projectOptionsWindow(rkgk, requestUIReload) {
   const win = new FloatingWindow(document.body, {
     title: "Project options",
-    width: 400,
+    width: 360,
     makeUnique: true,
     showCancel: false,
     buttonLabels: {
@@ -382,8 +463,14 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
       const w = parseInt(widthInput.value, 10);
       const h = parseInt(heightInput.value, 10);
       if (!isNaN(w) && !isNaN(h)) {
-        await rkgk.resize(w, h);
-        aspectRatio = w / h;
+        const userAccepts = await acceptWindow(
+          `Reize to ${w}x${h}`,
+          "This is a destructive change. Are you sure?",
+        );
+        if (userAccepts) {
+          await rkgk.resize(w, h);
+          aspectRatio = w / h;
+        }
       }
     };
 
@@ -404,29 +491,11 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
     };
 
     root.querySelector("#export_btn").onclick = async () => {
-      const sp = startSpin();
-      try {
-        console.log(keyInput, keyInput.value);
-        const serializer = new Serializer(keyInput.value);
-        const projectData = await serializer.serialize(rkgk);
-
-        const blob = new Blob([projectData], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${getFilename()}.rkgk`;
-        document.body.appendChild(a);
-        a.click();
-
-        a.remove();
-        URL.revokeObjectURL(url);
-      } catch (err) {
-        console.error("Failed to export project:", err);
-        errorWindow(err + "");
-      } finally {
-        sp.unload();
-        win.close(true);
-      }
+      await saveProjectAsFile(rkgk, {
+        password: keyInput.value,
+        filename: getFilename(),
+      });
+      win.close(true);
     };
 
     root.querySelector("#load_btn").onclick = () => {
@@ -475,7 +544,7 @@ export function referenceWindow(file, position) {
   const url = URL.createObjectURL(file);
   const win = new FloatingWindow(document.body, {
     title: file.name,
-    width: 400,
+    width: 360,
     height: null,
     x: position.clientX,
     y: position.clientY,
@@ -503,6 +572,86 @@ export function referenceWindow(file, position) {
   });
 }
 
+export function directionControlWindow(
+  {
+    onLeft,
+    onRight,
+    onUp,
+    onDown,
+    onUndo,
+    onRedo,
+    onReset,
+    onZoomIn,
+    onZoomOut,
+  },
+) {
+  const win = new FloatingWindow(document.body, {
+    title: "Move Controls",
+    width: 120,
+    showCancel: false,
+    makeUnique: true,
+    minimal: true,
+    buttonLabels: { ok: "Close" },
+  });
+
+  win.setContent((root) => {
+    root.style.padding = "12px";
+    root.style.display = "flex";
+    root.style.flexDirection = "column";
+    root.style.gap = "12px";
+    root.style.alignItems = "center";
+
+    const btn = (label, handler) => {
+      const btn = document.createElement("button");
+      btn.textContent = label;
+      btn.style.width = "26px";
+      btn.style.height = "26px";
+      btn.style.fontSize = "12px";
+      btn.style.cursor = "pointer";
+      btn.onclick = handler;
+      return btn;
+    };
+
+    // classic D-pad layout
+    const grid = document.createElement("div");
+    grid.style.display = "grid";
+    grid.style.gridTemplateColumns = "26px 26px 26px";
+    grid.style.gridTemplateRows = "26px 26px 26px";
+    grid.style.gap = "6px";
+    grid.style.justifyContent = "center";
+    grid.style.alignItems = "center";
+    const empty = () => {
+      const d = document.createElement("div");
+      d.style.width = "26px";
+      d.style.height = "26px";
+      return d;
+    };
+
+    grid.appendChild(empty());
+    grid.appendChild(btn("↑", onUp));
+    grid.appendChild(empty());
+
+    grid.appendChild(btn("←", onLeft));
+    grid.appendChild(btn("↺", onReset));
+    grid.appendChild(btn("→", onRight));
+
+    grid.appendChild(btn("-", onZoomOut));
+    grid.appendChild(btn("↓", onDown));
+    grid.appendChild(btn("+", onZoomIn));
+
+    const historyRow = document.createElement("div");
+    historyRow.style.display = "flex";
+    historyRow.style.gap = "12px";
+    historyRow.appendChild(btn("↶", onUndo));
+    historyRow.appendChild(btn("↷", onRedo));
+
+    root.appendChild(grid);
+    root.appendChild(historyRow);
+  });
+
+  return win;
+}
+
 export function startSpin() {
   const target = document.documentElement; // Root <html> element
   target.classList.add("is-loading");
@@ -512,4 +661,8 @@ export function startSpin() {
       target.classList.remove("is-loading");
     },
   };
+}
+
+export function isSmallScreen(breakpoint = 768) {
+  return window.matchMedia(`(max-width: ${breakpoint}px)`).matches;
 }

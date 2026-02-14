@@ -4,6 +4,7 @@ import { clearTemporaryState } from "./ui-persist.js";
 import {
   acceptWindow,
   createSpacer,
+  directionControlWindow,
   helpWindow,
   projectOptionsWindow,
   startSpin,
@@ -260,34 +261,71 @@ export class LayerMenu extends VerticalMenu {
     row.dataset.id = layer.id;
     row.draggable = true;
 
+    // Desktop
     row.addEventListener("dragstart", (e) => {
       e.dataTransfer.setData("text/plain", layer.id);
+      row.classList.add("is-dragging");
     });
-
+    row.addEventListener("dragend", () => {
+      row.classList.remove("is-dragging");
+    });
     row.addEventListener("dragover", (e) => e.preventDefault());
     row.addEventListener("drop", (e) => {
       e.preventDefault();
       const fromId = e.dataTransfer.getData("text/plain");
       const toId = layer.id;
-      if (!fromId || fromId === toId) return;
-
-      const layers = this.rkgk.layers;
-      const fromIndex = layers.findIndex((l) => l.id === fromId);
-      const toIndex = layers.findIndex((l) => l.id === toId);
-
-      const [movedLayer] = layers.splice(fromIndex, 1);
-      layers.splice(toIndex, 0, movedLayer);
-
-      this.update();
+      this.handleReorder(fromId, toId);
     });
 
-    row.onclick = () => {
+    // Touch devices
+    let touchDragging = false;
+    row.addEventListener("touchstart", (e) => {
+      touchDragging = true;
+      row.classList.add("is-dragging");
+    }, { passive: true });
+    row.addEventListener("touchend", (e) => {
+      if (!touchDragging) return;
+      touchDragging = false;
+      row.classList.remove("is-dragging");
+      const touch = e.changedTouches[0];
+      const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+
+      const dropRow = targetEl?.closest("[data-id]");
+      const toId = dropRow?.dataset.id;
+      const fromId = layer.id;
+
+      if (toId && fromId !== toId) {
+        this.handleReorder(fromId, toId);
+      }
+    });
+
+    row.addEventListener("click", (e) => {
+      // ignore if touch drag happened
+      if (touchDragging) return;
+
       this.rkgk.currentLayerId = layer.id;
       this.syncUI(layer);
       this.updateActive();
-    };
+    });
 
     return row;
+  }
+
+  /**
+   * Shared logic to move layers in the internal array
+   */
+  handleReorder(fromId, toId) {
+    if (!fromId || fromId === toId) return;
+
+    const layers = this.rkgk.layers;
+    const fromIndex = layers.findIndex((l) => l.id === fromId);
+    const toIndex = layers.findIndex((l) => l.id === toId);
+    if (fromIndex === -1 || toIndex === -1) return;
+
+    const [movedLayer] = layers.splice(fromIndex, 1);
+    layers.splice(toIndex, 0, movedLayer);
+
+    this.update();
   }
 
   updateActive() {
@@ -297,6 +335,34 @@ export class LayerMenu extends VerticalMenu {
   }
 }
 
+const COLOR_SWATCHES = [
+  "#000000",
+  "#1a1a1a",
+  "#ffffff",
+  // hair
+  "#6d4c41",
+  "#3e2723",
+  "#ffd54f",
+  "#b71c1c",
+  "#37474f",
+  // skin tones
+  "#ffdbac",
+  "#f1c27d",
+  "#e0ac69",
+  "#c68642",
+  "#8d5524",
+  // lips
+  "#ffb6c1",
+  "#ff8da1",
+  "#e57373",
+  // others
+  "#42a5f5",
+  "#66bb6a",
+  "#ab47bc",
+  "#ff7043",
+  "#ef5350",
+];
+
 export class BrushMenu extends VerticalMenu {
   constructor(
     root,
@@ -305,10 +371,12 @@ export class BrushMenu extends VerticalMenu {
       activeBrushId,
       onSelectBrush,
       onChangeSettings,
+      rkgk,
     },
   ) {
     super(root);
 
+    this.rkgk = rkgk;
     this.onChangeSettings = onChangeSettings;
     this.onSelectBrush = onSelectBrush;
 
@@ -361,6 +429,15 @@ export class BrushMenu extends VerticalMenu {
 
     const brushLabel = document.createElement("div");
     const updateActiveBrushLabel = () => {
+      if (this.rkgk?.tool === "bucket") {
+        brushLabel.innerHTML = `
+      <div class="basic-item-container">
+        <div><b>Bucket</b></div>
+        <div>Fill: ${this.rkgk.fillColor}</div>
+      </div>
+      `;
+        return;
+      }
       const brush = brushes.find((b) => b.id === this.state.activeBrushId);
       brushLabel.innerHTML = `
       <div class="basic-item-container">
@@ -380,9 +457,11 @@ export class BrushMenu extends VerticalMenu {
       const el = document.createElement("div");
       el.className = "thumb-brush";
       el.dataset.id = brush.id;
+      el.dataset.tool = "brush";
       el.setAttribute("id", getBrushContainerId(brush));
 
       el.onclick = () => {
+        if (this.rkgk) this.rkgk.tool = "brush";
         this.state.activeBrushId = brush.id;
         this.syncUI();
         this.updateSelection(list);
@@ -393,21 +472,59 @@ export class BrushMenu extends VerticalMenu {
       list.appendChild(el);
     });
 
+    const bucketEl = document.createElement("div");
+    bucketEl.className = "thumb-bucket";
+    bucketEl.dataset.tool = "bucket";
+    bucketEl.title = "Bucket fill";
+    bucketEl.innerHTML = "🪣";
+    bucketEl.onclick = () => {
+      if (this.rkgk) this.rkgk.tool = "bucket";
+      this.syncUI();
+      this.updateSelection(list);
+      updateActiveBrushLabel();
+    };
+    list.appendChild(bucketEl);
+
+    const swatchRow = document.createElement("div");
+    swatchRow.className = "color-swatches";
+    swatchRow.setAttribute("aria-label", "Color swatches");
+    COLOR_SWATCHES.forEach((hex) => {
+      const swatch = document.createElement("button");
+      swatch.type = "button";
+      swatch.className = "color-swatch";
+      swatch.style.backgroundColor = hex;
+      swatch.title = hex;
+      swatch.onclick = () => {
+        const c = hex;
+        this.activeSettings.color = c;
+        if (this.rkgk) this.rkgk.fillColor = c;
+        this.controls.color.value = c;
+        updateActiveBrushLabel();
+        this.emitChange();
+      };
+      swatchRow.appendChild(swatch);
+    });
+
     const color = document.createElement("input");
     color.type = "color";
     color.oninput = () => {
       this.activeSettings.color = color.value;
+      if (this.rkgk) this.rkgk.fillColor = color.value;
+      updateActiveBrushLabel();
       this.emitChange();
     };
 
     this.controls = { size, hardness, color };
+    this.bucketEl = bucketEl;
+    this.toolList = list;
 
     this.add(mainLabel);
     this.add(list);
-    this.add(brushLabel);
+    this.add(swatchRow);
     this.add(size);
     this.add(hardness);
     this.add(color);
+    this.add(brushLabel);
 
     updateActiveBrushLabel();
     this.updateSelection(list);
@@ -432,14 +549,17 @@ export class BrushMenu extends VerticalMenu {
     this.controls.size.value = s.size;
     this.controls.hardness.value = s.hardness;
     this.controls.color.value = s.color;
+    if (this.rkgk) this.rkgk.fillColor = s.color;
   }
 
   updateSelection(list) {
     [...list.children].forEach((el) => {
-      el.classList.toggle(
-        "active",
-        el.dataset.id === this.state.activeBrushId,
-      );
+      const isBucket = el.dataset.tool === "bucket";
+      const active = isBucket
+        ? this.rkgk?.tool === "bucket"
+        : this.rkgk?.tool !== "bucket" &&
+          el.dataset.id === this.state.activeBrushId;
+      el.classList.toggle("active", !!active);
     });
   }
 }
@@ -505,6 +625,10 @@ export class CanvasViewport {
     this.apply();
 
     this.onZoom?.({ scale: next });
+  }
+
+  getWindowCenter() {
+    return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
   }
 
   pan(dx, dy) {
@@ -638,21 +762,53 @@ export class CanvasViewport {
         "Project options",
         () => projectOptionsWindow(this.rkgk, this.onRequestUIReload),
       ),
+      btn("✥", "Canvas controls", () => {
+        const dp = 25;
+        directionControlWindow({
+          onLeft: () => {
+            this.pan(-dp, 0);
+          },
+          onRight: () => {
+            this.pan(dp, 0);
+          },
+          onUp: () => {
+            this.pan(0, -dp);
+          },
+          onDown: () => {
+            this.pan(0, dp);
+          },
+          onUndo: () => {
+            this.onRedo?.("backward");
+          },
+          onRedo: () => {
+            this.onRedo?.("forward");
+          },
+          onReset: () => {
+            this.reset();
+          },
+          onZoomOut: () => {
+            const c = this.getWindowCenter();
+            this.zoomAt(0.9, c.x, c.y);
+          },
+          onZoomIn: () => {
+            const c = this.getWindowCenter();
+            this.zoomAt(1.1, c.x, c.y);
+          },
+        });
+      }),
       btn("?", "Help", () => helpWindow()),
       createSpacer(48),
-      btn("<", "Undo (Ctrl+Z)", () => this.onRedo?.("backward")),
-      btn(">", "Redo (Ctrl+Y)", () => this.onRedo?.("forward")),
-      btn(
-        "-",
-        "Zoom out",
-        () => this.zoomAt(0.9, window.innerWidth / 2, window.innerHeight / 2),
-      ),
+      btn("↶", "Undo (Ctrl+Z)", () => this.onRedo?.("backward")),
+      btn("↷", "Redo (Ctrl+Y)", () => this.onRedo?.("forward")),
+      btn("-", "Zoom out", () => {
+        const c = this.getWindowCenter();
+        this.zoomAt(0.9, c.x, c.y);
+      }),
       this.scaleDisplay,
-      btn(
-        "+",
-        "Zoom in",
-        () => this.zoomAt(1.1, window.innerWidth / 2, window.innerHeight / 2),
-      ),
+      btn("+", "Zoom in", () => {
+        const c = this.getWindowCenter();
+        this.zoomAt(1.1, c.x, c.y);
+      }),
     );
 
     const parent = document.body;
@@ -671,6 +827,11 @@ export class CanvasViewport {
       const factor = e.deltaY < 0 ? 1.1 : 0.9;
       this.zoomAt(factor, e.clientX, e.clientY);
     };
+
+    this.viewportEl = this.canvas?.closest("#canvasViewport") ??
+      document.getElementById("canvasViewport");
+    const wheelTarget = this.viewportEl || window;
+    wheelTarget.addEventListener("wheel", this.onWheel, { passive: false });
 
     this.onPointerDown = (e) => {
       this.dragging = true;
@@ -728,7 +889,6 @@ export class CanvasViewport {
       }
     };
 
-    window.addEventListener("wheel", this.onWheel, { passive: false });
     window.addEventListener("keydown", this.onKeyDown);
 
     this.canvas.addEventListener("pointerdown", this.onPointerDown);
@@ -737,8 +897,10 @@ export class CanvasViewport {
   }
 
   unbind() {
-    window.removeEventListener("wheel", this.onWheel);
+    const wheelTarget = this.viewportEl || window;
+    wheelTarget.removeEventListener("wheel", this.onWheel);
     window.removeEventListener("keydown", this.onKeyDown);
+    this.viewportEl = null;
 
     if (!this.canvas) return;
 
