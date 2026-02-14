@@ -321,6 +321,7 @@ export class Brush {
     textureLoader,
     angleTransform,
     squashTransform,
+    thumbnailBackground = null,
     pressureCurve = (p) => p,
   }) {
     this.id = randomId("brush.");
@@ -332,6 +333,7 @@ export class Brush {
     this.textureLoader = textureLoader;
     this.angleTransform = angleTransform;
     this.squashTransform = squashTransform;
+    this.thumbnailBackground = thumbnailBackground;
     this.pressureCurve = pressureCurve;
 
     this._carry = 0;
@@ -431,6 +433,10 @@ export class Brush {
   async getThumbnail(width, height) {
     const off = new OffscreenCanvas(width, height);
     const ctx = off.getContext("2d");
+    if (this.thumbnailBackground) {
+      ctx.fillStyle = this.thumbnailBackground;
+      ctx.fillRect(0, 0, width, height);
+    }
 
     const steps = 30;
     // HACK: stroke will explode otherwise

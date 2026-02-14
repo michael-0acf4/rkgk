@@ -4,6 +4,7 @@ import { clearTemporaryState } from "./ui-persist.js";
 import {
   acceptWindow,
   createSpacer,
+  directionControlWindow,
   helpWindow,
   projectOptionsWindow,
   startSpin,
@@ -314,9 +315,9 @@ const COLOR_SWATCHES = [
   "#c68642",
   "#8d5524",
   // lips
-  "#ffb6c1", 
-  "#ff8da1", 
-  "#e57373", 
+  "#ffb6c1",
+  "#ff8da1",
+  "#e57373",
   // others
   "#42a5f5",
   "#66bb6a",
@@ -483,10 +484,10 @@ export class BrushMenu extends VerticalMenu {
     this.add(mainLabel);
     this.add(list);
     this.add(swatchRow);
-    this.add(brushLabel);
     this.add(size);
     this.add(hardness);
     this.add(color);
+    this.add(brushLabel);
 
     updateActiveBrushLabel();
     this.updateSelection(list);
@@ -724,10 +725,32 @@ export class CanvasViewport {
         "Project options",
         () => projectOptionsWindow(this.rkgk, this.onRequestUIReload),
       ),
+      btn("✥", "Canvas controls", (e) => {
+        directionControlWindow({
+          onLeft: () => {
+            this.pan(-10, 0);
+          },
+          onRight: () => {
+            this.pan(10, 0);
+          },
+          onUp: () => {
+            this.pan(0, -10);
+          },
+          onDown: () => {
+            this.pan(0, 10);
+          },
+          onUndo: () => {
+            this.onRedo?.("backward");
+          },
+          onRedo: () => {
+            this.onRedo?.("forward");
+          },
+        });
+      }),
       btn("?", "Help", () => helpWindow()),
       createSpacer(48),
-      btn("<", "Undo (Ctrl+Z)", () => this.onRedo?.("backward")),
-      btn(">", "Redo (Ctrl+Y)", () => this.onRedo?.("forward")),
+      btn("↶", "Undo (Ctrl+Z)", () => this.onRedo?.("backward")),
+      btn("↷", "Redo (Ctrl+Y)", () => this.onRedo?.("forward")),
       btn("-", "Zoom out", () => {
         const c = this.getWindowCenter();
         this.zoomAt(0.9, c.x, c.y);

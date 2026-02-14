@@ -513,6 +513,79 @@ export function referenceWindow(file, position) {
   });
 }
 
+export function directionControlWindow(
+  { onLeft, onRight, onUp, onDown, onUndo, onRedo },
+) {
+  const win = new FloatingWindow(document.body, {
+    title: "Move Controls",
+    width: null,
+    height: null,
+    showCancel: false,
+    makeUnique: true,
+    minimal: true,
+    buttonLabels: {
+      ok: "Close",
+    },
+  });
+
+  win.setContent((root) => {
+    root.style.padding = "12px";
+    root.style.display = "flex";
+    root.style.flexDirection = "column";
+    root.style.gap = "12px";
+    root.style.alignItems = "center";
+
+    const makeBtn = (label, handler) => {
+      const btn = document.createElement("button");
+      btn.textContent = label;
+      btn.style.width = "26px";
+      btn.style.height = "26px";
+      btn.style.fontSize = "12px";
+      btn.style.cursor = "pointer";
+      btn.onclick = handler;
+      return btn;
+    };
+
+    // classic D-pad layout
+    const grid = document.createElement("div");
+    grid.style.display = "grid";
+    grid.style.gridTemplateColumns = "26px 26px 26px";
+    grid.style.gridTemplateRows = "26px 26px 26px";
+    grid.style.gap = "6px";
+    grid.style.justifyContent = "center";
+    grid.style.alignItems = "center";
+    // fake pad
+    const empty = () => {
+      const d = document.createElement("div");
+      d.style.width = "26px";
+      d.style.height = "26px";
+      return d;
+    };
+
+    grid.appendChild(empty());
+    grid.appendChild(makeBtn("↑", onUp));
+    grid.appendChild(empty());
+
+    grid.appendChild(makeBtn("←", onLeft));
+    grid.appendChild(empty());
+    grid.appendChild(makeBtn("→", onRight));
+
+    grid.appendChild(empty());
+    grid.appendChild(makeBtn("↓", onDown));
+    grid.appendChild(empty());
+
+    const historyRow = document.createElement("div");
+    historyRow.style.display = "flex";
+    historyRow.style.gap = "12px";
+
+    historyRow.appendChild(makeBtn("↶", onUndo));
+    historyRow.appendChild(makeBtn("↷", onRedo));
+
+    root.appendChild(grid);
+    root.appendChild(historyRow);
+  });
+}
+
 export function startSpin() {
   const target = document.documentElement; // Root <html> element
   target.classList.add("is-loading");
