@@ -215,7 +215,7 @@ export function acceptWindow(title, message) {
   return new Promise((resolve, _) => {
     const accept = new FloatingWindow(document.body, {
       title,
-      width: 420,
+      width: 360,
       showCancel: true,
       onClose: resolve,
       makeUnique: true,
@@ -232,7 +232,7 @@ export function acceptWindow(title, message) {
 export function helpWindow() {
   const shortcuts = new FloatingWindow(document.body, {
     title: "Help",
-    width: 420,
+    width: 360,
     showCancel: false,
     makeUnique: true,
   });
@@ -261,7 +261,7 @@ export function errorWindow(mainError = "Unknown error", details = []) {
 
   const shortcuts = new FloatingWindow(document.body, {
     title: "An error has occured",
-    width: 420,
+    width: 360,
     height: 420,
     showCancel: false,
     makeUnique: false,
@@ -302,7 +302,7 @@ export function flashElement(el, color, duration = 500) {
 export function projectOptionsWindow(rkgk, requestUIReload) {
   const win = new FloatingWindow(document.body, {
     title: "Project options",
-    width: 400,
+    width: 360,
     makeUnique: true,
     showCancel: false,
     buttonLabels: {
@@ -485,7 +485,7 @@ export function referenceWindow(file, position) {
   const url = URL.createObjectURL(file);
   const win = new FloatingWindow(document.body, {
     title: file.name,
-    width: 400,
+    width: 360,
     height: null,
     x: position.clientX,
     y: position.clientY,
@@ -513,20 +513,30 @@ export function referenceWindow(file, position) {
   });
 }
 
+function isMobile() {
+  return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(
+    navigator.userAgent,
+  );
+}
+
 export function directionControlWindow(
-  { onLeft, onRight, onUp, onDown, onUndo, onRedo },
+  { onLeft, onRight, onUp, onDown, onUndo, onRedo, onReset },
 ) {
   const win = new FloatingWindow(document.body, {
     title: "Move Controls",
-    width: null,
-    height: null,
+    width: 120,
     showCancel: false,
     makeUnique: true,
     minimal: true,
-    buttonLabels: {
-      ok: "Close",
-    },
+    buttonLabels: { ok: "Close" },
   });
+
+  if (isMobile()) {
+    win.el.style.left = "auto";
+    win.el.style.top = "auto";
+    win.el.style.right = "20px";
+    win.el.style.bottom = "20px";
+  }
 
   win.setContent((root) => {
     root.style.padding = "12px";
@@ -567,7 +577,7 @@ export function directionControlWindow(
     grid.appendChild(empty());
 
     grid.appendChild(makeBtn("←", onLeft));
-    grid.appendChild(empty());
+    grid.appendChild(makeBtn("↺", onReset));
     grid.appendChild(makeBtn("→", onRight));
 
     grid.appendChild(empty());
@@ -577,13 +587,14 @@ export function directionControlWindow(
     const historyRow = document.createElement("div");
     historyRow.style.display = "flex";
     historyRow.style.gap = "12px";
-
     historyRow.appendChild(makeBtn("↶", onUndo));
     historyRow.appendChild(makeBtn("↷", onRedo));
 
     root.appendChild(grid);
     root.appendChild(historyRow);
   });
+
+  return win;
 }
 
 export function startSpin() {

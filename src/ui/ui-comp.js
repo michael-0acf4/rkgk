@@ -725,25 +725,29 @@ export class CanvasViewport {
         "Project options",
         () => projectOptionsWindow(this.rkgk, this.onRequestUIReload),
       ),
-      btn("✥", "Canvas controls", (e) => {
+      btn("✥", "Canvas controls", () => {
+        const dp = 25;
         directionControlWindow({
           onLeft: () => {
-            this.pan(-10, 0);
+            this.pan(-dp, 0);
           },
           onRight: () => {
-            this.pan(10, 0);
+            this.pan(dp, 0);
           },
           onUp: () => {
-            this.pan(0, -10);
+            this.pan(0, -dp);
           },
           onDown: () => {
-            this.pan(0, 10);
+            this.pan(0, dp);
           },
           onUndo: () => {
             this.onRedo?.("backward");
           },
           onRedo: () => {
             this.onRedo?.("forward");
+          },
+          onReset: () => {
+            this.reset();
           },
         });
       }),
