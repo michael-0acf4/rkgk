@@ -201,7 +201,7 @@
       }
 
       .sidebar-right .sidebar-edge::after {
-        border-right-color:black;
+        border-right-color: black;
         border-left-width: 0;
       }
 
@@ -227,15 +227,24 @@
         width: 100%;
         padding: 4px;
         border: none;
-        background: var(--color-border-focused);
+        background: rgba(0, 0, 0, 0.08);
         cursor: pointer;
         font-size: 14px;
         line-height: 1;
         opacity: 0.8;
       }
 
+      .sidebar-close:hover {
+        background: rgba(0, 0, 0, 0.12);
+        opacity: 1;
+      }
+
       .sidebar-panel .vmenu {
-        /*  flex: 1;  */
+        min-height: 0;
+      }
+
+      .sidebar-panel .vmenu.right {
+        flex: 1;
         min-height: 0;
       }
 
