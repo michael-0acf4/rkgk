@@ -38,6 +38,9 @@ rkgk.addListeners({
   onStroke: (_) => {
     GLOBALS.UNSAVED = true;
   },
+  onFill: () => {
+    GLOBALS.UNSAVED = true;
+  },
 });
 
 /**
@@ -58,6 +61,8 @@ async function main() {
     await initBrushes(brushes);
   }
 
+  rkgk.fillColor = rkgk.brush?.color ?? "#000000";
+
   new BrushMenu(
     document.getElementById("brushMenu"),
     {
@@ -73,6 +78,7 @@ async function main() {
         await brush.setFilter(settings.color, settings.hardness);
         updateBrushThumbnail(brush).catch(console.error);
       },
+      rkgk,
     },
   );
 
@@ -97,6 +103,21 @@ async function main() {
     document.getElementById("layerMenu"),
     { rkgk },
   );
+
+  // Tap edge to toggle open on touch, click outside to close
+  document.querySelectorAll(".sidebar-edge").forEach((edge) => {
+    edge.addEventListener("click", (e) => {
+      e.stopPropagation();
+      edge.closest(".sidebar-wrap").classList.toggle("pinned");
+    });
+  });
+  document.getElementById("app").addEventListener("click", (e) => {
+    if (!e.target.closest(".sidebar-wrap")) {
+      document.querySelectorAll(".sidebar-wrap.pinned").forEach((w) =>
+        w.classList.remove("pinned")
+      );
+    }
+  });
 
   // Thumbs
   Promise.all(rkgk.layers.map(updateLayerThumbnail))

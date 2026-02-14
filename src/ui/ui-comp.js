@@ -297,6 +297,27 @@ export class LayerMenu extends VerticalMenu {
   }
 }
 
+const COLOR_SWATCHES = [
+  "#000000",
+  "#ffffff",
+  "#f44336",
+  "#e91e63",
+  "#9c27b0",
+  "#673ab7",
+  "#3f51b5",
+  "#2196f3",
+  "#03a9f4",
+  "#00bcd4",
+  "#009688",
+  "#4caf50",
+  "#8bc34a",
+  "#cddc39",
+  "#ffeb3b",
+  "#ffc107",
+  "#ff9800",
+  "#ff5722",
+];
+
 export class BrushMenu extends VerticalMenu {
   constructor(
     root,
@@ -305,10 +326,12 @@ export class BrushMenu extends VerticalMenu {
       activeBrushId,
       onSelectBrush,
       onChangeSettings,
+      rkgk,
     },
   ) {
     super(root);
 
+    this.rkgk = rkgk;
     this.onChangeSettings = onChangeSettings;
     this.onSelectBrush = onSelectBrush;
 
@@ -361,6 +384,15 @@ export class BrushMenu extends VerticalMenu {
 
     const brushLabel = document.createElement("div");
     const updateActiveBrushLabel = () => {
+      if (this.rkgk?.tool === "bucket") {
+        brushLabel.innerHTML = `
+      <div class="basic-item-container">
+        <div><b>Bucket</b></div>
+        <div>Fill: ${this.rkgk.fillColor}</div>
+      </div>
+      `;
+        return;
+      }
       const brush = brushes.find((b) => b.id === this.state.activeBrushId);
       brushLabel.innerHTML = `
       <div class="basic-item-container">
@@ -380,9 +412,11 @@ export class BrushMenu extends VerticalMenu {
       const el = document.createElement("div");
       el.className = "thumb-brush";
       el.dataset.id = brush.id;
+      el.dataset.tool = "brush";
       el.setAttribute("id", getBrushContainerId(brush));
 
       el.onclick = () => {
+        if (this.rkgk) this.rkgk.tool = "brush";
         this.state.activeBrushId = brush.id;
         this.syncUI();
         this.updateSelection(list);
@@ -393,17 +427,55 @@ export class BrushMenu extends VerticalMenu {
       list.appendChild(el);
     });
 
+    const bucketEl = document.createElement("div");
+    bucketEl.className = "thumb-brush thumb-bucket";
+    bucketEl.dataset.tool = "bucket";
+    bucketEl.title = "Bucket fill";
+    bucketEl.innerHTML = "🪣";
+    bucketEl.onclick = () => {
+      if (this.rkgk) this.rkgk.tool = "bucket";
+      this.syncUI();
+      this.updateSelection(list);
+      updateActiveBrushLabel();
+    };
+    list.appendChild(bucketEl);
+
+    const swatchRow = document.createElement("div");
+    swatchRow.className = "color-swatches";
+    swatchRow.setAttribute("aria-label", "Color swatches");
+    COLOR_SWATCHES.forEach((hex) => {
+      const swatch = document.createElement("button");
+      swatch.type = "button";
+      swatch.className = "color-swatch";
+      swatch.style.backgroundColor = hex;
+      swatch.title = hex;
+      swatch.onclick = () => {
+        const c = hex;
+        this.activeSettings.color = c;
+        if (this.rkgk) this.rkgk.fillColor = c;
+        this.controls.color.value = c;
+        updateActiveBrushLabel();
+        this.emitChange();
+      };
+      swatchRow.appendChild(swatch);
+    });
+
     const color = document.createElement("input");
     color.type = "color";
     color.oninput = () => {
       this.activeSettings.color = color.value;
+      if (this.rkgk) this.rkgk.fillColor = color.value;
+      updateActiveBrushLabel();
       this.emitChange();
     };
 
     this.controls = { size, hardness, color };
+    this.bucketEl = bucketEl;
+    this.toolList = list;
 
     this.add(mainLabel);
     this.add(list);
+    this.add(swatchRow);
     this.add(brushLabel);
     this.add(size);
     this.add(hardness);
@@ -432,14 +504,17 @@ export class BrushMenu extends VerticalMenu {
     this.controls.size.value = s.size;
     this.controls.hardness.value = s.hardness;
     this.controls.color.value = s.color;
+    if (this.rkgk) this.rkgk.fillColor = s.color;
   }
 
   updateSelection(list) {
     [...list.children].forEach((el) => {
-      el.classList.toggle(
-        "active",
-        el.dataset.id === this.state.activeBrushId,
-      );
+      const isBucket = el.dataset.tool === "bucket";
+      const active = isBucket
+        ? this.rkgk?.tool === "bucket"
+        : this.rkgk?.tool !== "bucket" &&
+          el.dataset.id === this.state.activeBrushId;
+      el.classList.toggle("active", !!active);
     });
   }
 }

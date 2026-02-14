@@ -89,7 +89,7 @@ export class FloatingWindow {
     if (!this.minimal) {
       this.el.appendChild(this.header);
     }
-  
+
     this.el.appendChild(this.content);
     this.el.appendChild(this.footer);
     this.root.appendChild(this.el);

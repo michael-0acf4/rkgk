@@ -4,8 +4,14 @@
     <meta charset="UTF-8" />
 
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Rkgk UI lets you sketch anything, on any device, instantly. No install. Just open and draw." />
-    <meta name="keywords" content="sketch, drawing, whiteboard, pwa, browser drawing, online sketch, canvas tool" />
+    <meta
+      name="description"
+      content="Rkgk UI lets you sketch anything, on any device, instantly. No install. Just open and draw."
+    />
+    <meta
+      name="keywords"
+      content="sketch, drawing, whiteboard, pwa, browser drawing, online sketch, canvas tool"
+    />
     <meta name="author" content="Rkgk UI" />
 
     <!-- official -->
@@ -16,27 +22,61 @@
     <meta name="theme-color" content="#23667e" />
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    >
     <meta name="apple-mobile-web-app-title" content="Rkgk UI">
 
     <!-- icons -->
-    <link rel="icon" type="image/png" sizes="32x32" href="/src/pwa/icon-32.png" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/src/pwa/icon-192.png" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/src/pwa/icon-32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="192x192"
+      href="/src/pwa/icon-192.png"
+    />
     <link rel="apple-touch-icon" href="/src/pwa/icon-192.png" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Rkgk UI — Sketch anything, anywhere, instantly" />
-    <meta property="og:description" content="Sketch anything on any device. Open the page and start drawing." />
-    <meta property="og:image" content="https://rkgk.afmichael.dev/src/pwa/icon-192.png" />
-    <meta property="og:url" content="https://rkgk.afmichael.dev/src/pwa/icon-192.png" />
+    <meta
+      property="og:title"
+      content="Rkgk UI — Sketch anything, anywhere, instantly"
+    />
+    <meta
+      property="og:description"
+      content="Sketch anything on any device. Open the page and start drawing."
+    />
+    <meta
+      property="og:image"
+      content="https://rkgk.afmichael.dev/src/pwa/icon-192.png"
+    />
+    <meta
+      property="og:url"
+      content="https://rkgk.afmichael.dev/src/pwa/icon-192.png"
+    />
     <meta property="og:site_name" content="Rkgk UI" />
 
     <!-- twitter / X -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Rkgk UI — Sketch anything, anywhere, instantly" />
-    <meta name="twitter:description" content="Sketch anything on any device. No install required." />
-    <meta name="twitter:image" content="https://rkgk.afmichael.dev/src/pwa/icon-192.png" />
+    <meta
+      name="twitter:title"
+      content="Rkgk UI — Sketch anything, anywhere, instantly"
+    />
+    <meta
+      name="twitter:description"
+      content="Sketch anything on any device. No install required."
+    />
+    <meta
+      name="twitter:image"
+      content="https://rkgk.afmichael.dev/src/pwa/icon-192.png"
+    />
 
     <!-- robots -->
     <meta name="robots" content="index, follow" />
@@ -113,27 +153,117 @@
         cursor: crosshair;
       }
 
-      /* Vertical menus */
-      .vmenu {
+      /* Sidebar wrappers: narrow edge strip, expand on hover or when pinned (mobile) */
+      .sidebar-wrap {
+        --sidebar-edge-width: 14px;
         position: absolute;
         top: 0;
         bottom: 0;
+        z-index: 10;
+        display: flex;
+        overflow: hidden;
+        width: var(--sidebar-edge-width);
+        transition: width 0.2s ease-out;
+      }
+
+      .sidebar-wrap:hover,
+      .sidebar-wrap.pinned {
+        width: calc(
+          var(--sidebar-edge-width) + var(--menu-wdith)
+            + 2 * var(--menu-padding)
+        );
+      }
+
+      .sidebar-edge {
+        flex-shrink: 0;
+        width: var(--sidebar-edge-width);
+        min-width: var(--sidebar-edge-width);
+        background: rgba(255, 255, 255, 0.08);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+      }
+
+      .sidebar-edge::after {
+        content: "";
+        width: 0;
+        height: 0;
+        border: 5px solid transparent;
+        opacity: 0.5;
+      }
+
+      .sidebar-left .sidebar-edge::after {
+        border-left-color: rgba(255, 255, 255, 0.9);
+        border-right-width: 0;
+      }
+
+      .sidebar-right .sidebar-edge::after {
+        border-right-color: rgba(255, 255, 255, 0.9);
+        border-left-width: 0;
+      }
+
+      .sidebar-wrap:hover .sidebar-edge,
+      .sidebar-wrap.pinned .sidebar-edge {
+        background: transparent;
+      }
+
+      .sidebar-wrap:hover .sidebar-edge::after,
+      .sidebar-wrap.pinned .sidebar-edge::after {
+        opacity: 0.3;
+      }
+
+      .sidebar-left {
+        left: 0;
+      }
+
+      .sidebar-left .vmenu {
+        border-radius: 0 6px 6px 0;
+      }
+
+      .sidebar-right {
+        right: 0;
+        flex-direction: row-reverse;
+      }
+
+      .sidebar-right .vmenu {
+        border-radius: 6px 0 0 6px;
+      }
+
+      /* Touch / mobile: wider tap target, no hover so rely on .pinned */
+      @media (hover: none) {
+        .sidebar-wrap {
+          --sidebar-edge-width: 28px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .sidebar-wrap {
+          --sidebar-edge-width: 32px;
+        }
+      }
+
+      /* Vertical menus */
+      .vmenu {
+        position: relative;
+        flex-shrink: 0;
         width: var(--menu-wdith);
+        top: 0;
+        bottom: 0;
         padding: var(--menu-padding);
         display: flex;
         flex-direction: column;
         gap: 8px;
         background: var(--menu-background-color);
-        z-index: 10;
       }
 
       .vmenu.left {
-        left: 0;
         border-right: 1px solid #ccc;
       }
 
       .vmenu.right {
-        right: 0;
         border-left: 1px solid #ccc;
       }
 
@@ -169,6 +299,33 @@
         /*  background: var(--thumb-active-color);  */
         border-color: var(--thumb-active-border-color);
         border-width: 4px;
+      }
+
+      .thumb-bucket {
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+      }
+
+      .color-swatches {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+
+      .color-swatch {
+        width: 20px;
+        height: 20px;
+        padding: 0;
+        border: 1px solid rgba(0, 0, 0, 0.3);
+        border-radius: 3px;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+
+      .color-swatch:hover {
+        border-color: var(--color-border-hover);
+        transform: scale(1.1);
       }
 
       .layer-list {
@@ -402,8 +559,14 @@
           <canvas id="canvas" width="1000" height="1000"></canvas>
         </div>
       </div>
-      <div id="brushMenu" class="vmenu left no-select"></div>
-      <div id="layerMenu" class="vmenu right no-select"></div>
+      <div class="sidebar-wrap sidebar-left" aria-label="Brushes">
+        <div class="sidebar-edge" aria-hidden="true"></div>
+        <div id="brushMenu" class="vmenu left no-select"></div>
+      </div>
+      <div class="sidebar-wrap sidebar-right" aria-label="Layers">
+        <div class="sidebar-edge" aria-hidden="true"></div>
+        <div id="layerMenu" class="vmenu right no-select"></div>
+      </div>
     </div>
 
     <script type="module" src="src/index.js"></script>
@@ -411,8 +574,10 @@
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker.register("/src/pwa/sw.js")
-            .then(reg => console.log("SW registered:", reg.scope))
-            .catch(err => console.log("SW registration failed:", err));
+            .then((reg) => console.log("SW registered:", reg.scope))
+            .catch((err) =>
+              console.log("SW registration failed:", err)
+            );
         });
       }
     </script>
