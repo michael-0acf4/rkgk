@@ -85,12 +85,13 @@
     <style>
       :root {
         --color-border-hover: #789ec4;
+        --color-border-focused: #3a546c;
         --color-danger: #f10303;
         --color-disabled: #c7c7c7;
         --standard-global-font: system-ui, sans-serif;
         --standard-global-color: #2b7998a2;
         --menu-background-color: #f6f8fa;
-        --menu-wdith: 128px;
+        --menu-width: 128px;
         --menu-padding: 18px;
         --btn-disable: #f6f8fa;
         --thumb-layer-width: 64px;
@@ -169,7 +170,7 @@
 
       .sidebar-wrap.open {
         width: calc(
-          var(--sidebar-edge-width) + var(--menu-wdith)
+          var(--sidebar-edge-width) + var(--menu-width)
             + 2 * var(--menu-padding)
         );
       }
@@ -205,16 +206,16 @@
       }
 
       .sidebar-wrap.open .sidebar-edge {
-        background: transparent;
+        background-color: var(--color-border-focused);
       }
 
       .sidebar-wrap.open .sidebar-edge::after {
-        opacity: 0.4;
+        opacity: 0.8;
       }
 
       .sidebar-panel {
         flex: 0 0 auto;
-        width: calc(var(--menu-wdith) + 2 * var(--menu-padding));
+        width: calc(var(--menu-width) + 2 * var(--menu-padding));
         display: flex;
         flex-direction: column;
         overflow: auto;
@@ -226,21 +227,15 @@
         width: 100%;
         padding: 4px;
         border: none;
-        background: rgba(0, 0, 0, 0.08);
-        color: inherit;
+        background: var(--color-border-focused);
         cursor: pointer;
         font-size: 14px;
         line-height: 1;
         opacity: 0.8;
       }
 
-      .sidebar-close:hover {
-        background: rgba(0, 0, 0, 0.12);
-        opacity: 1;
-      }
-
       .sidebar-panel .vmenu {
-        flex: 1;
+        /*  flex: 1;  */
         min-height: 0;
       }
 
@@ -277,7 +272,7 @@
       .vmenu {
         position: relative;
         flex-shrink: 0;
-        width: var(--menu-wdith);
+        width: var(--menu-width);
         top: 0;
         bottom: 0;
         padding: var(--menu-padding);
@@ -491,7 +486,7 @@
       }
 
       input[type="color"] {
-        width: var(--menu-wdith);
+        width: var(--menu-width);
         height: 32px;
         padding: 0;
         border: none;
@@ -499,7 +494,7 @@
 
       .canvas-controls {
         position: absolute;
-        top: 10px;
+        top: 2px;
         left: 50%;
         transform: translateX(-50%);
         display: flex;

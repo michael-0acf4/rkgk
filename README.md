@@ -1,7 +1,13 @@
 
 # rkgk
 
-[rkgk](https://rkgk.afmichael.dev) (Rakugaki), sketch anything, on any device, on the fly. All you need is a browser.
+
+
+[rkgk](https://rkgk.afmichael.dev) (Rakugaki), sketch anything, on any device, on the fly, all you need is a browser.
+
+<div style="text-align: center;">
+  <img src="src/pwa/icon-192.png" />
+</div>
 
 # Motivations
 
@@ -28,6 +34,7 @@ python -m http.server 4242
 - Custom brushes: hardness, color, size, procedural textures or images
 - Layers composition: history, thumbnails, visibility, etc.
 - Export/Import: **encrypted** rkgk project file
+- Paper types: Flipnote like, screentone
 
 [rkgk.js](./src/rkgk/rkgk.js) is the core module, all it needs is a canvas or something that behaves like it.
 
@@ -50,8 +57,7 @@ Only constraint is your drawing tablet's friction.
 
 Simply drag & drop any image to the window
 
-![doro_chan](misc/doro_chan.png)
-
+![illustration demo](misc/illus.png)
 
 Checkout the [rkgk demo](https://rkgk.afmichael.dev/demo) to see the core features in action, or maybe try [Rkgk UI](https://rkgk.afmichael.dev) for a full-fledged semi-professional digital art app.
 

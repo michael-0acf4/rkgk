@@ -261,34 +261,71 @@ export class LayerMenu extends VerticalMenu {
     row.dataset.id = layer.id;
     row.draggable = true;
 
+    // Desktop
     row.addEventListener("dragstart", (e) => {
       e.dataTransfer.setData("text/plain", layer.id);
+      row.classList.add("is-dragging");
     });
-
+    row.addEventListener("dragend", () => {
+      row.classList.remove("is-dragging");
+    });
     row.addEventListener("dragover", (e) => e.preventDefault());
     row.addEventListener("drop", (e) => {
       e.preventDefault();
       const fromId = e.dataTransfer.getData("text/plain");
       const toId = layer.id;
-      if (!fromId || fromId === toId) return;
-
-      const layers = this.rkgk.layers;
-      const fromIndex = layers.findIndex((l) => l.id === fromId);
-      const toIndex = layers.findIndex((l) => l.id === toId);
-
-      const [movedLayer] = layers.splice(fromIndex, 1);
-      layers.splice(toIndex, 0, movedLayer);
-
-      this.update();
+      this.handleReorder(fromId, toId);
     });
 
-    row.onclick = () => {
+    // Touch devices
+    let touchDragging = false;
+    row.addEventListener("touchstart", (e) => {
+      touchDragging = true;
+      row.classList.add("is-dragging");
+    }, { passive: true });
+    row.addEventListener("touchend", (e) => {
+      if (!touchDragging) return;
+      touchDragging = false;
+      row.classList.remove("is-dragging");
+      const touch = e.changedTouches[0];
+      const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+
+      const dropRow = targetEl?.closest("[data-id]");
+      const toId = dropRow?.dataset.id;
+      const fromId = layer.id;
+
+      if (toId && fromId !== toId) {
+        this.handleReorder(fromId, toId);
+      }
+    });
+
+    row.addEventListener("click", (e) => {
+      // ignore if touch drag happened
+      if (touchDragging) return;
+
       this.rkgk.currentLayerId = layer.id;
       this.syncUI(layer);
       this.updateActive();
-    };
+    });
 
     return row;
+  }
+
+  /**
+   * Shared logic to move layers in the internal array
+   */
+  handleReorder(fromId, toId) {
+    if (!fromId || fromId === toId) return;
+
+    const layers = this.rkgk.layers;
+    const fromIndex = layers.findIndex((l) => l.id === fromId);
+    const toIndex = layers.findIndex((l) => l.id === toId);
+    if (fromIndex === -1 || toIndex === -1) return;
+
+    const [movedLayer] = layers.splice(fromIndex, 1);
+    layers.splice(toIndex, 0, movedLayer);
+
+    this.update();
   }
 
   updateActive() {

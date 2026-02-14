@@ -9,8 +9,10 @@ import {
 } from "./ui/ui-comp.js";
 import {
   flashElement,
+  isSmallScreen,
   referenceWindow,
   saveProjectAsFile,
+  smallTipWindow,
 } from "./ui/ui-window.js";
 import { loadTemporaryState, persistTemporaryState } from "./ui/ui-persist.js";
 
@@ -22,30 +24,14 @@ rkgk.setupDOMEvents({
   ],
 }); // !
 const brushes = stdBrushes();
+const queryString = window.location.search;
+const urlParams = new URLSearchParams(queryString);
 
 export const GLOBALS = {
   FORCE_EXIT: false,
   UNSAVED: true,
+  DEBUG: urlParams.get("debug") == "true",
 };
-
-rkgk.currentLayerId = rkgk.addLayer();
-// rkgk.currentLayerId = rkgk.addLayer();
-// rkgk.currentLayerId = rkgk.addLayer();
-// rkgk.currentLayerId = rkgk.addLayer();
-// rkgk.drawDebugNumber();
-
-rkgk.addListeners({
-  onDrawingInvisbleLayer: () => {
-    console.warn("drawing on an invisble layers");
-    flashElement(rkgk.renderer.canvas, "rgba(255, 0, 0, 0.2)");
-  },
-  onStroke: (_) => {
-    GLOBALS.UNSAVED = true;
-  },
-  onFill: () => {
-    GLOBALS.UNSAVED = true;
-  },
-});
 
 /**
  * @param {Brush[]} brushes
@@ -59,11 +45,36 @@ async function initBrushes(brushes) {
 
 async function main() {
   try {
+    if (GLOBALS.DEBUG) {
+      let layerCount = 10;
+      while (layerCount--) {
+        rkgk.currentLayerId = rkgk.addLayer();
+      }
+      rkgk.drawDebugNumber();
+      throw new Error("Forced debug started");
+    }
+
     await loadTemporaryState(rkgk, brushes);
   } catch (err) {
     console.warn(err);
     await initBrushes(brushes);
   }
+
+  rkgk.addListeners({
+    onDrawingInvisbleLayer: () => {
+      flashElement(rkgk.renderer.canvas, "rgba(255, 0, 0, 0.2)");
+      smallTipWindow(
+        "No active layer",
+        "Please add or select a layer",
+      );
+    },
+    onStroke: (_) => {
+      GLOBALS.UNSAVED = true;
+    },
+    onFill: () => {
+      GLOBALS.UNSAVED = true;
+    },
+  });
 
   rkgk.fillColor = rkgk.brush?.color ?? "#000000";
 
@@ -108,25 +119,33 @@ async function main() {
     { rkgk },
   );
 
-  // Tap edge to toggle open on touch, click outside to close
+  // Tap edge to toggle open on touch
   document.querySelectorAll(".sidebar-edge").forEach((edge) => {
     edge.addEventListener("click", (e) => {
       e.stopPropagation();
       edge.closest(".sidebar-wrap").classList.toggle("open");
     });
+
+    if (!isSmallScreen()) {
+      edge.closest(".sidebar-wrap").classList.toggle("open");
+    }
   });
   document.querySelectorAll(".sidebar-close").forEach((btn) => {
     btn.addEventListener("click", () => {
       btn.closest(".sidebar-wrap").classList.remove("open");
     });
   });
-  document.getElementById("app").addEventListener("click", (e) => {
-    if (!e.target.closest(".sidebar-wrap")) {
-      document.querySelectorAll(".sidebar-wrap.open").forEach((w) =>
-        w.classList.remove("open")
-      );
-    }
-  });
+
+  if (isSmallScreen()) {
+    // click outside to close
+    document.getElementById("app").addEventListener("click", (e) => {
+      if (!e.target.closest(".sidebar-wrap")) {
+        document.querySelectorAll(".sidebar-wrap.open").forEach((w) =>
+          w.classList.remove("open")
+        );
+      }
+    });
+  }
 
   // Thumbs
   Promise.all(rkgk.layers.map(updateLayerThumbnail))
@@ -139,7 +158,7 @@ async function main() {
     if (layer) {
       await updateLayerThumbnail(layer);
     }
-  }, 1000);
+  }, 1_000);
 
   setInterval(async () => {
     try {

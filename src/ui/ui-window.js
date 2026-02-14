@@ -278,8 +278,10 @@ export function helpWindow() {
       <p><b>Reset</b>: Alt+R, or by <b>clicking</b> on the zoom value</p>
       <p><b>Undo/Redo</b>: Ctrl+Z/Ctrl+Y</p>
       <p><b>Save</b>: Ctrl+S (export project as .rkgk file)</p>
-      <br/>
       <p><b>References</b>: you can <b>drag & drop</b> images to use as a reference</p>
+      <br/>
+      <i>Contact: rkgk@afmichael.dev</i>
+      <br/>
     `;
     root.appendChild(txt);
   });
@@ -309,6 +311,24 @@ export function errorWindow(mainError = "Unknown error", details = []) {
       details.map((detail) => `<p> - ${stringifyError(detail)} </p>`).join("")
     }
       </p>
+    `;
+    root.appendChild(txt);
+  });
+}
+
+export function smallTipWindow(title, htmlMessage) {
+  const tip = new FloatingWindow(document.body, {
+    title,
+    width: 240,
+    showCancel: false,
+    makeUnique: true,
+    buttonLabels: { ok: "Close" },
+  });
+
+  tip.setContent((root) => {
+    const txt = document.createElement("div");
+    txt.innerHTML = `
+      <p>${htmlMessage}</p>
     `;
     root.appendChild(txt);
   });
@@ -443,8 +463,14 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
       const w = parseInt(widthInput.value, 10);
       const h = parseInt(heightInput.value, 10);
       if (!isNaN(w) && !isNaN(h)) {
-        await rkgk.resize(w, h);
-        aspectRatio = w / h;
+        const userAccepts = await acceptWindow(
+          `Reize to ${w}x${h}`,
+          "This is a destructive change. Are you sure?",
+        );
+        if (userAccepts) {
+          await rkgk.resize(w, h);
+          aspectRatio = w / h;
+        }
       }
     };
 
@@ -635,4 +661,8 @@ export function startSpin() {
       target.classList.remove("is-loading");
     },
   };
+}
+
+export function isSmallScreen(breakpoint = 768) {
+  return window.matchMedia(`(max-width: ${breakpoint}px)`).matches;
 }

@@ -830,7 +830,14 @@ export class RkgkEngine {
           event.pointerId == state.activePointerId && state.drawing && layer &&
           state.lastPos
         ) {
-          if (layer.isVisible) {
+        }
+
+        if (
+          event.pointerId == state.activePointerId &&
+          state.drawing &&
+          state.lastPos
+        ) {
+          if (layer?.isVisible) {
             this.brush.stroke(
               layer.renderer.context,
               state.lastPos,
