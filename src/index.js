@@ -7,7 +7,11 @@ import {
   updateBrushThumbnail,
   updateLayerThumbnail,
 } from "./ui/ui-comp.js";
-import { flashElement, referenceWindow } from "./ui/ui-window.js";
+import {
+  flashElement,
+  referenceWindow,
+  saveProjectAsFile,
+} from "./ui/ui-window.js";
 import { loadTemporaryState, persistTemporaryState } from "./ui/ui-persist.js";
 
 const canvas = document.getElementById("canvas");
@@ -108,13 +112,18 @@ async function main() {
   document.querySelectorAll(".sidebar-edge").forEach((edge) => {
     edge.addEventListener("click", (e) => {
       e.stopPropagation();
-      edge.closest(".sidebar-wrap").classList.toggle("pinned");
+      edge.closest(".sidebar-wrap").classList.toggle("open");
+    });
+  });
+  document.querySelectorAll(".sidebar-close").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      btn.closest(".sidebar-wrap").classList.remove("open");
     });
   });
   document.getElementById("app").addEventListener("click", (e) => {
     if (!e.target.closest(".sidebar-wrap")) {
-      document.querySelectorAll(".sidebar-wrap.pinned").forEach((w) =>
-        w.classList.remove("pinned")
+      document.querySelectorAll(".sidebar-wrap.open").forEach((w) =>
+        w.classList.remove("open")
       );
     }
   });
@@ -156,6 +165,15 @@ async function main() {
     requestAnimationFrame(draw);
   }
   draw();
+
+  window.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+      const focus = document.activeElement;
+      if (focus && /^(INPUT|TEXTAREA|SELECT)$/.test(focus.tagName)) return;
+      e.preventDefault();
+      saveProjectAsFile(rkgk).catch(console.error);
+    }
+  });
 
   // Global
   window.addEventListener("drop", (e) => {

@@ -299,23 +299,30 @@ export class LayerMenu extends VerticalMenu {
 
 const COLOR_SWATCHES = [
   "#000000",
+  "#1a1a1a",
   "#ffffff",
-  "#f44336",
-  "#e91e63",
-  "#9c27b0",
-  "#673ab7",
-  "#3f51b5",
-  "#2196f3",
-  "#03a9f4",
-  "#00bcd4",
-  "#009688",
-  "#4caf50",
-  "#8bc34a",
-  "#cddc39",
-  "#ffeb3b",
-  "#ffc107",
-  "#ff9800",
-  "#ff5722",
+  // hair
+  "#6d4c41",
+  "#3e2723",
+  "#ffd54f",
+  "#b71c1c",
+  "#37474f",
+  // skin tones
+  "#ffdbac",
+  "#f1c27d",
+  "#e0ac69",
+  "#c68642",
+  "#8d5524",
+  // lips
+  "#ffb6c1", 
+  "#ff8da1", 
+  "#e57373", 
+  // others
+  "#42a5f5",
+  "#66bb6a",
+  "#ab47bc",
+  "#ff7043",
+  "#ef5350",
 ];
 
 export class BrushMenu extends VerticalMenu {
@@ -428,7 +435,7 @@ export class BrushMenu extends VerticalMenu {
     });
 
     const bucketEl = document.createElement("div");
-    bucketEl.className = "thumb-brush thumb-bucket";
+    bucketEl.className = "thumb-bucket";
     bucketEl.dataset.tool = "bucket";
     bucketEl.title = "Bucket fill";
     bucketEl.innerHTML = "🪣";
@@ -749,6 +756,11 @@ export class CanvasViewport {
       this.zoomAt(factor, e.clientX, e.clientY);
     };
 
+    this.viewportEl = this.canvas?.closest("#canvasViewport") ??
+      document.getElementById("canvasViewport");
+    const wheelTarget = this.viewportEl || window;
+    wheelTarget.addEventListener("wheel", this.onWheel, { passive: false });
+
     this.onPointerDown = (e) => {
       this.dragging = true;
       this.activePointerId = e.pointerId;
@@ -805,7 +817,6 @@ export class CanvasViewport {
       }
     };
 
-    window.addEventListener("wheel", this.onWheel, { passive: false });
     window.addEventListener("keydown", this.onKeyDown);
 
     this.canvas.addEventListener("pointerdown", this.onPointerDown);
@@ -814,8 +825,10 @@ export class CanvasViewport {
   }
 
   unbind() {
-    window.removeEventListener("wheel", this.onWheel);
+    const wheelTarget = this.viewportEl || window;
+    wheelTarget.removeEventListener("wheel", this.onWheel);
     window.removeEventListener("keydown", this.onKeyDown);
+    this.viewportEl = null;
 
     if (!this.canvas) return;
 

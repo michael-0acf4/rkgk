@@ -2,6 +2,34 @@ import { Serializer } from "../rkgk/rkgk.js";
 
 const uniqueWindows = new Set();
 
+/**
+ * @param {import("../rkgk/rkgk.js").RkgkEngine}
+ * @param {{ password?: string, filename?: string }}
+ */
+export async function saveProjectAsFile(rkgk, options = {}) {
+  const password = options.password ?? "";
+  const filename = options.filename ?? rkgk.title ?? "rkgk_untitled";
+  const sp = startSpin();
+  try {
+    const serializer = new Serializer(password);
+    const projectData = await serializer.serialize(rkgk);
+    const blob = new Blob([projectData], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${filename}.rkgk`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("Failed to save/export project:", err);
+    errorWindow(String(err));
+  } finally {
+    sp.unload();
+  }
+}
+
 export class FloatingWindow {
   constructor(
     root = document.body,
@@ -182,7 +210,6 @@ export function createSpacer(width = 8) {
 /**
  * @param {string} title
  * @param {string} message
- * @returns {Promise<boolean>}
  */
 export function acceptWindow(title, message) {
   return new Promise((resolve, _) => {
@@ -217,6 +244,7 @@ export function helpWindow() {
       <p><b>Zoom</b>: Alt+Scroll</p>
       <p><b>Reset</b>: Alt+R, or by <b>clicking</b> on the zoom value</p>
       <p><b>Undo/Redo</b>: Ctrl+Z/Ctrl+Y</p>
+      <p><b>Save</b>: Ctrl+S (export project as .rkgk file)</p>
       <br/>
       <p><b>References</b>: you can <b>drag & drop</b> images to use as a reference</p>
     `;
@@ -404,29 +432,11 @@ export function projectOptionsWindow(rkgk, requestUIReload) {
     };
 
     root.querySelector("#export_btn").onclick = async () => {
-      const sp = startSpin();
-      try {
-        console.log(keyInput, keyInput.value);
-        const serializer = new Serializer(keyInput.value);
-        const projectData = await serializer.serialize(rkgk);
-
-        const blob = new Blob([projectData], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${getFilename()}.rkgk`;
-        document.body.appendChild(a);
-        a.click();
-
-        a.remove();
-        URL.revokeObjectURL(url);
-      } catch (err) {
-        console.error("Failed to export project:", err);
-        errorWindow(err + "");
-      } finally {
-        sp.unload();
-        win.close(true);
-      }
+      await saveProjectAsFile(rkgk, {
+        password: keyInput.value,
+        filename: getFilename(),
+      });
+      win.close(true);
     };
 
     root.querySelector("#load_btn").onclick = () => {

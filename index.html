@@ -148,14 +148,15 @@
       canvas {
         background-color: white;
         touch-action: none;
-        transform-origin: 0 0; /* zoom-at-point uses top-left as scale pivot */
+        transform-origin: 0
+          0; /* zoom-at-point uses top-left as scale pivot */
         box-shadow: 0 0 0 1px #938282;
         cursor: crosshair;
       }
 
-      /* Sidebar wrappers: narrow edge strip, expand on hover or when pinned (mobile) */
+      /* Sidebar edge strip + panel */
       .sidebar-wrap {
-        --sidebar-edge-width: 14px;
+        --sidebar-edge-width: 26px;
         position: absolute;
         top: 0;
         bottom: 0;
@@ -163,11 +164,10 @@
         display: flex;
         overflow: hidden;
         width: var(--sidebar-edge-width);
-        transition: width 0.2s ease-out;
+        transition: width 0.1s ease-out;
       }
 
-      .sidebar-wrap:hover,
-      .sidebar-wrap.pinned {
+      .sidebar-wrap.open {
         width: calc(
           var(--sidebar-edge-width) + var(--menu-wdith)
             + 2 * var(--menu-padding)
@@ -178,12 +178,11 @@
         flex-shrink: 0;
         width: var(--sidebar-edge-width);
         min-width: var(--sidebar-edge-width);
-        background: rgba(255, 255, 255, 0.08);
+        background: var(--thumb-active-border-color);
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        -webkit-tap-highlight-color: transparent;
         touch-action: manipulation;
       }
 
@@ -192,34 +191,64 @@
         width: 0;
         height: 0;
         border: 5px solid transparent;
-        opacity: 0.5;
+        opacity: 0.7;
       }
 
       .sidebar-left .sidebar-edge::after {
-        border-left-color: rgba(255, 255, 255, 0.9);
+        border-left-color: black;
         border-right-width: 0;
       }
 
       .sidebar-right .sidebar-edge::after {
-        border-right-color: rgba(255, 255, 255, 0.9);
+        border-right-color:black;
         border-left-width: 0;
       }
 
-      .sidebar-wrap:hover .sidebar-edge,
-      .sidebar-wrap.pinned .sidebar-edge {
+      .sidebar-wrap.open .sidebar-edge {
         background: transparent;
       }
 
-      .sidebar-wrap:hover .sidebar-edge::after,
-      .sidebar-wrap.pinned .sidebar-edge::after {
-        opacity: 0.3;
+      .sidebar-wrap.open .sidebar-edge::after {
+        opacity: 0.4;
+      }
+
+      .sidebar-panel {
+        flex: 0 0 auto;
+        width: calc(var(--menu-wdith) + 2 * var(--menu-padding));
+        display: flex;
+        flex-direction: column;
+        overflow: auto;
+        min-height: 0;
+      }
+
+      .sidebar-close {
+        flex-shrink: 0;
+        width: 100%;
+        padding: 4px;
+        border: none;
+        background: rgba(0, 0, 0, 0.08);
+        color: inherit;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1;
+        opacity: 0.8;
+      }
+
+      .sidebar-close:hover {
+        background: rgba(0, 0, 0, 0.12);
+        opacity: 1;
+      }
+
+      .sidebar-panel .vmenu {
+        flex: 1;
+        min-height: 0;
       }
 
       .sidebar-left {
         left: 0;
       }
 
-      .sidebar-left .vmenu {
+      .sidebar-left .sidebar-panel .vmenu {
         border-radius: 0 6px 6px 0;
       }
 
@@ -228,11 +257,10 @@
         flex-direction: row-reverse;
       }
 
-      .sidebar-right .vmenu {
+      .sidebar-right .sidebar-panel .vmenu {
         border-radius: 6px 0 0 6px;
       }
 
-      /* Touch / mobile: wider tap target, no hover so rely on .pinned */
       @media (hover: none) {
         .sidebar-wrap {
           --sidebar-edge-width: 28px;
@@ -289,6 +317,73 @@
         height: var(--thumb-brush-height); /* keep same values on ui-comp */
       }
 
+      .thumb-brush-wrap {
+        position: relative;
+        display: inline-block;
+      }
+
+      .thumb-brush-wrap .thumb-brush {
+        display: block;
+      }
+
+      .brush-settings-btn {
+        position: absolute;
+        bottom: 2px;
+        right: 2px;
+        width: 22px;
+        height: 22px;
+        padding: 0;
+        border: none;
+        border-radius: 3px;
+        background: rgba(0, 0, 0, 0.5);
+        color: rgba(0, 0, 0, 0.75);
+        font-size: 12px;
+        line-height: 1;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .brush-settings-btn:hover {
+        background: rgba(0, 0, 0, 0.75);
+      }
+
+      .brush-settings-popover {
+        position: fixed;
+        z-index: 10000;
+        min-width: 140px;
+        padding: 8px;
+        background: var(--menu-background-color);
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        display: none;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .brush-settings-popover.open {
+        display: flex;
+      }
+
+      .brush-settings-popover .popover-title {
+        font-size: 12px;
+        font-weight: bold;
+        margin-bottom: 2px;
+      }
+
+      .brush-settings-popover label {
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .brush-settings-popover label span {
+        min-width: 52px;
+      }
+
       .thumb-brush, .thumb-layer {
         border: 2px solid #b7b7b7;
         border-radius: 2px;
@@ -302,9 +397,14 @@
       }
 
       .thumb-bucket {
-        align-items: center;
-        justify-content: center;
-        font-size: 1.4rem;
+        width: 24px;
+        font-size: 16px;
+        border: 2px solid #b7b7b7;
+      }
+
+      .thumb-bucket.active {
+        border-color: var(--thumb-active-border-color);
+        border-width: 4px;
       }
 
       .color-swatches {
@@ -314,8 +414,8 @@
       }
 
       .color-swatch {
-        width: 20px;
-        height: 20px;
+        width: 16px;
+        height: 16px;
         padding: 0;
         border: 1px solid rgba(0, 0, 0, 0.3);
         border-radius: 3px;
@@ -560,12 +660,32 @@
         </div>
       </div>
       <div class="sidebar-wrap sidebar-left" aria-label="Brushes">
-        <div class="sidebar-edge" aria-hidden="true"></div>
-        <div id="brushMenu" class="vmenu left no-select"></div>
+        <div class="sidebar-edge" aria-hidden="true" title="Brushes"></div>
+        <div class="sidebar-panel">
+          <button
+            type="button"
+            class="sidebar-close"
+            title="Close panel"
+            aria-label="Close"
+          >
+            -
+          </button>
+          <div id="brushMenu" class="vmenu left no-select"></div>
+        </div>
       </div>
       <div class="sidebar-wrap sidebar-right" aria-label="Layers">
-        <div class="sidebar-edge" aria-hidden="true"></div>
-        <div id="layerMenu" class="vmenu right no-select"></div>
+        <div class="sidebar-edge" aria-hidden="true" title="Layers"></div>
+        <div class="sidebar-panel">
+          <button
+            type="button"
+            class="sidebar-close"
+            title="Close panel"
+            aria-label="Close"
+          >
+            -
+          </button>
+          <div id="layerMenu" class="vmenu right no-select"></div>
+        </div>
       </div>
     </div>
 
