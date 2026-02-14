@@ -582,6 +582,10 @@ export class CanvasViewport {
     this.onZoom?.({ scale: next });
   }
 
+  getWindowCenter() {
+    return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+  }
+
   pan(dx, dy) {
     this.state.x += dx;
     this.state.y += dy;
@@ -717,17 +721,15 @@ export class CanvasViewport {
       createSpacer(48),
       btn("<", "Undo (Ctrl+Z)", () => this.onRedo?.("backward")),
       btn(">", "Redo (Ctrl+Y)", () => this.onRedo?.("forward")),
-      btn(
-        "-",
-        "Zoom out",
-        () => this.zoomAt(0.9, window.innerWidth / 2, window.innerHeight / 2),
-      ),
+      btn("-", "Zoom out", () => {
+        const c = this.getWindowCenter();
+        this.zoomAt(0.9, c.x, c.y);
+      }),
       this.scaleDisplay,
-      btn(
-        "+",
-        "Zoom in",
-        () => this.zoomAt(1.1, window.innerWidth / 2, window.innerHeight / 2),
-      ),
+      btn("+", "Zoom in", () => {
+        const c = this.getWindowCenter();
+        this.zoomAt(1.1, c.x, c.y);
+      }),
     );
 
     const parent = document.body;
