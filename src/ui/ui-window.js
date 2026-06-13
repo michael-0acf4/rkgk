@@ -273,12 +273,14 @@ export function helpWindow() {
   shortcuts.setContent((root) => {
     const txt = document.createElement("div");
     txt.innerHTML = `
-      <p><b>Pan</b>: Alt+Mouse or ↑, ↓, ←, →</p>
-      <p><b>Zoom</b>: Alt+Scroll</p>
-      <p><b>Reset</b>: Alt+R, or by <b>clicking</b> on the zoom value</p>
-      <p><b>Undo/Redo</b>: Ctrl+Z/Ctrl+Y</p>
-      <p><b>Save</b>: Ctrl+S (export project as .rkgk file)</p>
-      <p><b>References</b>: you can <b>drag & drop</b> images to use as a reference</p>
+      <p><b>Pan</b>: Alt+drag or ↑, ↓, ←, →</p>
+      <p><b>Zoom</b>: Alt+scroll</p>
+      <p><b>Reset view</b>: <b>R</b> or click zoom %</p>
+      <p><b>Undo/Redo</b>: Ctrl+Z / Ctrl+Y</p>
+      <p><b>Save</b>: Ctrl+S (exports .rkgk file)</p>
+      <p><b>Select & move</b>: click <b>Select</b>, drag rectangle, <b>Enter</b> to transform</p>
+      <p><b>Transform</b>: <b>Enter</b> to confirm, <b>Escape</b> to cancel</p>
+      <p style="margin-top:6px"><b>References</b>: drag & drop images</p>
       <br/>
       <i>Contact: rkgk@afmichael.dev</i>
       <br/>

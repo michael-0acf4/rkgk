@@ -2,6 +2,7 @@ import { GLOBALS } from "../index.js";
 import { Layer, stdStaticPapers } from "../rkgk/rkgk.js";
 import { clearTemporaryState } from "./ui-persist.js";
 import { TransformTool } from "./transform-tool.js";
+import { ColorPicker } from "./color-picker.js";
 import {
   acceptWindow,
   createSpacer,
@@ -10,6 +11,37 @@ import {
   projectOptionsWindow,
   startSpin,
 } from "./ui-window.js";
+
+function wrapSlider(slider, label, format) {
+  const c = document.createElement("div");
+  c.style.cssText =
+    "display:flex; align-items:center; gap:3px; font-size:11px;";
+
+  const l = document.createElement("span");
+  l.textContent = label;
+  l.style.cssText = "width:36px; flex-shrink:0;";
+
+  slider.style.flex = "1";
+  slider.style.minWidth = "0";
+
+  const v = document.createElement("span");
+  v.style.cssText = "width:28px; text-align:right; flex-shrink:0;";
+
+  const update = () => {
+    v.textContent = format ? format(slider.value) : slider.value;
+  };
+  const orig = slider.oninput;
+  slider.oninput = (e) => {
+    update();
+    orig?.(e);
+  };
+  update();
+
+  c.appendChild(l);
+  c.appendChild(slider);
+  c.appendChild(v);
+  return c;
+}
 
 export function getLayerContainerId({ id }) {
   return ["layer", "container", id].join("-");
@@ -121,9 +153,15 @@ export class LayerMenu extends VerticalMenu {
 
     this.importBtn = document.createElement("button");
     this.importBtn.className = "button";
-    this.importBtn.textContent = "Img";
+    this.importBtn.textContent = "+ Import";
     this.importBtn.title = "Import image as new layer";
     this.importBtn.onclick = () => this.pickAndImportImage();
+
+    this.selectBtn = document.createElement("button");
+    this.selectBtn.className = "button";
+    this.selectBtn.textContent = "Select";
+    this.selectBtn.title = "Select area on current layer to move/transform";
+    this.selectBtn.onclick = () => this.startSelectTransform();
 
     this.opacityInput = document.createElement("input");
     this.opacityInput.type = "range";
@@ -190,9 +228,18 @@ export class LayerMenu extends VerticalMenu {
 
     this.add(this.addBtn);
     this.add(this.importBtn);
-    this.add(this.opacityInput);
+    this.add(this.selectBtn);
+    this.add(
+      wrapSlider(
+        this.opacityInput,
+        "Opacity",
+        (v) => Math.round(v * 100) + "%",
+      ),
+    );
     this.add(this.paperSelect);
-    this.add(this.paperStrength);
+    this.add(
+      wrapSlider(this.paperStrength, "Paper", (v) => Math.round(v * 100) + "%"),
+    );
     this.add(this.layerList);
   }
 
@@ -377,6 +424,24 @@ export class LayerMenu extends VerticalMenu {
     input.click();
     input.remove();
   }
+
+  startSelectTransform() {
+    const layer = this.rkgk.getLayer(this.rkgk.currentLayerId);
+    if (!layer) return;
+
+    new TransformTool(this.rkgk, null, {
+      mode: "select",
+      sourceLayerId: this.rkgk.currentLayerId,
+      onConfirm: () => {
+        GLOBALS.UNSAVED = true;
+        this.update();
+        updateLayerThumbnail(layer).catch(console.error);
+      },
+      onCancel: () => {
+        this.update();
+      },
+    });
+  }
 }
 
 const COLOR_SWATCHES = [
@@ -539,35 +604,41 @@ export class BrushMenu extends VerticalMenu {
       swatch.style.backgroundColor = hex;
       swatch.title = hex;
       swatch.onclick = () => {
-        const c = hex;
-        this.activeSettings.color = c;
-        if (this.rkgk) this.rkgk.fillColor = c;
-        this.controls.color.value = c;
+        this.activeSettings.color = hex;
+        if (this.rkgk) this.rkgk.fillColor = hex;
+        this.colorPicker.setColor(hex);
         updateActiveBrushLabel();
         this.emitChange();
+        if (this.activeSwatchEl) {
+          this.activeSwatchEl.classList.remove("active");
+        }
+        swatch.classList.add("active");
+        this.activeSwatchEl = swatch;
       };
       swatchRow.appendChild(swatch);
     });
 
-    const color = document.createElement("input");
-    color.type = "color";
-    color.oninput = () => {
-      this.activeSettings.color = color.value;
-      if (this.rkgk) this.rkgk.fillColor = color.value;
-      updateActiveBrushLabel();
-      this.emitChange();
-    };
-
-    this.controls = { size, hardness, color };
+    this.controls = { size, hardness };
     this.bucketEl = bucketEl;
     this.toolList = list;
 
     this.add(mainLabel);
     this.add(list);
     this.add(swatchRow);
-    this.add(size);
-    this.add(hardness);
-    this.add(color);
+    this.add(wrapSlider(size, "Size", (v) => v + "px"));
+    this.add(wrapSlider(hardness, "Hard", (v) => Math.round(v * 100) + "%"));
+
+    this.colorPicker = new ColorPicker({
+      initialColor: this.activeSettings.color,
+      onChange: (hex) => {
+        this.activeSettings.color = hex;
+        if (this.rkgk) this.rkgk.fillColor = hex;
+        updateActiveBrushLabel();
+        this.emitChange();
+      },
+    });
+    this.add(this.colorPicker.root);
+
     this.add(brushLabel);
 
     updateActiveBrushLabel();
@@ -592,8 +663,8 @@ export class BrushMenu extends VerticalMenu {
 
     this.controls.size.value = s.size;
     this.controls.hardness.value = s.hardness;
-    this.controls.color.value = s.color;
     if (this.rkgk) this.rkgk.fillColor = s.color;
+    this.colorPicker.setColor(s.color);
   }
 
   updateSelection(list) {
@@ -692,19 +763,6 @@ export class CanvasViewport {
     if (nextCanvas) this.attach(nextCanvas);
   }
 
-  centerCanvas() {
-    if (!this.canvas) return;
-
-    // const viewport = this.canvas.parentElement.getBoundingClientRect();
-    // this.state.x = (viewport.width  - this.canvas.width  * this.state.scale) / 2;
-    // this.state.y = (viewport.height - this.canvas.height * this.state.scale) / 2;
-
-    this.state.x = (-this.canvas.width * this.state.scale) / 2;
-    this.state.y = (-this.canvas.height * this.state.scale) / 2;
-
-    this.apply();
-  }
-
   attach(canvas) {
     // const newRect = canvas.getBoundingClientRect();
 
@@ -725,7 +783,6 @@ export class CanvasViewport {
     this.clampPan();
     this.apply();
     this.bind();
-    this.centerCanvas();
   }
 
   detach() {
@@ -749,7 +806,6 @@ export class CanvasViewport {
 
     this.onPan?.({ x: 0, y: 0 });
     this.onZoom?.({ scale: 1 });
-    this.centerCanvas();
   }
 
   destroy() {

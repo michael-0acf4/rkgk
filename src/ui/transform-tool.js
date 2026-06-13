@@ -1,7 +1,11 @@
 export class TransformTool {
-  #handlePointerDown = (e) => {
-    const p = this.#getCanvasPoint(e);
-    const corner = this.#hitCorner(p.x, p.y);
+  handlePointerDown = (e) => {
+    if (this.mode === "select" && this.phase === "draw") {
+      this.selectionPointerDown(e);
+      return;
+    }
+    const p = this.getCanvasPoint(e);
+    const corner = this.hitCorner(p.x, p.y);
     if (corner) {
       this.dragging = true;
       this.dragMode = "scale";
@@ -9,14 +13,14 @@ export class TransformTool {
       this.dragStartState = { scale: this.scale };
       return;
     }
-    if (this.#hitRotate(p.x, p.y)) {
+    if (this.hitRotate(p.x, p.y)) {
       this.dragging = true;
       this.dragMode = "rotate";
       this.dragStart = { x: p.x, y: p.y };
       this.dragStartState = { rotation: this.rotation };
       return;
     }
-    if (this.#hitImage(p.x, p.y)) {
+    if (this.hitImage(p.x, p.y)) {
       this.dragging = true;
       this.dragMode = "move";
       this.dragStart = { x: p.x, y: p.y };
@@ -24,12 +28,16 @@ export class TransformTool {
     }
   };
 
-  #handlePointerMove = (e) => {
-    if (!this.dragging) {
-      this.#updateCursor(e);
+  handlePointerMove = (e) => {
+    if (this.mode === "select" && this.phase === "draw") {
+      this.selectionPointerMove(e);
       return;
     }
-    const p = this.#getCanvasPoint(e);
+    if (!this.dragging) {
+      this.updateCursor(e);
+      return;
+    }
+    const p = this.getCanvasPoint(e);
 
     if (this.dragMode === "move") {
       this.pos.x = this.dragStartState.pos.x + (p.x - this.dragStart.x);
@@ -55,12 +63,26 @@ export class TransformTool {
     }
   };
 
-  #handlePointerUp = () => {
+  handlePointerUp = () => {
+    if (this.mode === "select" && this.phase === "draw") {
+      this.selectionPointerUp();
+      return;
+    }
     this.dragging = false;
     this.dragMode = null;
   };
 
-  #handleKeyDown = (e) => {
+  handleKeyDown = (e) => {
+    if (this.mode === "select" && this.phase === "draw") {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        this.cancel();
+      } else if (e.key === "Enter" && this.selStart && this.selEnd) {
+        e.preventDefault();
+        this.enterTransformPhase();
+      }
+      return;
+    }
     if (e.key === "Enter") {
       e.preventDefault();
       this.confirm();
@@ -70,26 +92,18 @@ export class TransformTool {
     }
   };
 
-  constructor(rkgk, imageBitmap, { onConfirm, onCancel } = {}) {
+  constructor(
+    rkgk,
+    imageBitmap,
+    { onConfirm, onCancel, mode, sourceLayerId } = {},
+  ) {
     this.rkgk = rkgk;
-    this.image = imageBitmap;
     this.onConfirm = onConfirm;
     this.onCancel = onCancel;
 
     const mainCanvas = rkgk.renderer.canvas;
     this.cw = mainCanvas.width;
     this.ch = mainCanvas.height;
-    this.imgW = imageBitmap.width;
-    this.imgH = imageBitmap.height;
-
-    const fitScale = Math.min(
-      (this.cw * 0.8) / this.imgW,
-      (this.ch * 0.8) / this.imgH,
-    );
-
-    this.pos = { x: this.cw / 2, y: this.ch / 2 };
-    this.scale = fitScale;
-    this.rotation = 0;
 
     this.dragging = false;
     this.dragMode = null;
@@ -99,15 +113,43 @@ export class TransformTool {
     this.controls = null;
     this.running = false;
 
-    this.#createCanvas(mainCanvas);
-    this.#createControls();
-    this.#bindEvents();
+    this.createCanvas(mainCanvas);
 
-    this.running = true;
-    this.#renderLoop();
+    if (mode === "select" && sourceLayerId) {
+      this.canvas.style.cursor = "crosshair";
+      this.mode = "select";
+      this.sourceLayerId = sourceLayerId;
+      this.phase = "draw";
+      this.image = null;
+      this.selStart = null;
+      this.selEnd = null;
+      this.createControls();
+      this.bindEvents();
+      this.running = true;
+      this.renderLoop();
+    } else {
+      this.mode = "import";
+      this.phase = "transform";
+      this.image = imageBitmap;
+      this.imgW = imageBitmap.width;
+      this.imgH = imageBitmap.height;
+
+      const fitScale = Math.min(
+        (this.cw * 0.8) / this.imgW,
+        (this.ch * 0.8) / this.imgH,
+      );
+      this.pos = { x: this.cw / 2, y: this.ch / 2 };
+      this.scale = fitScale;
+      this.rotation = 0;
+
+      this.createControls();
+      this.bindEvents();
+      this.running = true;
+      this.renderLoop();
+    }
   }
 
-  #createCanvas(mainCanvas) {
+  createCanvas(mainCanvas) {
     this.canvas = document.createElement("canvas");
     this.canvas.width = this.cw;
     this.canvas.height = this.ch;
@@ -115,14 +157,15 @@ export class TransformTool {
       position: absolute; top: 0; left: 0;
       pointer-events: auto; cursor: default;
       transform-origin: 0 0;
+      background: transparent;
     `;
 
     const stage = document.getElementById("canvasStage");
     stage.appendChild(this.canvas);
 
     this.mainCanvas = mainCanvas;
-    this.#syncTransform();
-    this.observer = new MutationObserver(() => this.#syncTransform());
+    this.syncTransform();
+    this.observer = new MutationObserver(() => this.syncTransform());
     this.observer.observe(mainCanvas, {
       attributes: true,
       attributeFilter: ["style"],
@@ -132,19 +175,19 @@ export class TransformTool {
     mainCanvas.style.cursor = "default";
   }
 
-  #syncTransform() {
+  syncTransform() {
     this.canvas.style.transform = this.mainCanvas.style.transform;
   }
 
-  #getScreenScale() {
+  getScreenScale() {
     const s = this.mainCanvas.style.transform;
     const m = s.match(/scale\(([\d.]+)\)/);
     return m ? parseFloat(m[1]) : 1;
   }
 
-  #getCanvasPoint(e) {
+  getCanvasPoint(e) {
     const rect = this.canvas.getBoundingClientRect();
-    const ss = this.#getScreenScale();
+    const ss = this.getScreenScale();
     return {
       x: (e.clientX - rect.left) / ss,
       y: (e.clientY - rect.top) / ss,
@@ -152,7 +195,7 @@ export class TransformTool {
   }
 
   get corners() {
-    const { cos, sin } = this.#trig();
+    const { cos, sin } = this.trig();
     const hw = (this.imgW * this.scale) / 2;
     const hh = (this.imgH * this.scale) / 2;
     return {
@@ -176,7 +219,7 @@ export class TransformTool {
   }
 
   get rotHandlePos() {
-    const { sin, cos } = this.#trig();
+    const { sin, cos } = this.trig();
     const hh = (this.imgH * this.scale) / 2;
     const off = 40;
     return {
@@ -190,35 +233,28 @@ export class TransformTool {
     return { x: (c.tl.x + c.tr.x) / 2, y: (c.tl.y + c.tr.y) / 2 };
   }
 
-  #trig() {
+  trig() {
     return { cos: Math.cos(this.rotation), sin: Math.sin(this.rotation) };
   }
 
-  #renderLoop() {
+  renderLoop() {
     if (!this.running) return;
-    this.#render();
-    requestAnimationFrame(() => this.#renderLoop());
+    this.render();
+    requestAnimationFrame(() => this.renderLoop());
   }
 
-  #render() {
+  render() {
     const ctx = this.canvas.getContext("2d");
     ctx.clearRect(0, 0, this.cw, this.ch);
 
-    ctx.fillStyle = "rgba(0,0,0,0.35)";
-    ctx.fillRect(0, 0, this.cw, this.ch);
+    if (this.mode === "select" && this.phase === "draw") {
+      this.renderSelectionDraw(ctx);
+      return;
+    }
 
     ctx.save();
-    ctx.translate(this.pos.x, this.pos.y);
-    ctx.rotate(this.rotation);
-    ctx.scale(this.scale, this.scale);
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.fillStyle = "white";
-    ctx.fillRect(-this.imgW / 2, -this.imgH / 2, this.imgW, this.imgH);
-    ctx.restore();
-
-    ctx.save();
-    ctx.shadowColor = "rgba(0,0,0,0.4)";
-    ctx.shadowBlur = 16;
+    ctx.shadowColor = "rgba(0,0,0,0.35)";
+    ctx.shadowBlur = 12;
     ctx.translate(this.pos.x, this.pos.y);
     ctx.rotate(this.rotation);
     ctx.scale(this.scale, this.scale);
@@ -247,7 +283,7 @@ export class TransformTool {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    const ss = this.#getScreenScale();
+    const ss = this.getScreenScale();
     const r = 8 / ss;
 
     for (const key of ["tl", "tr", "br", "bl"]) {
@@ -270,9 +306,9 @@ export class TransformTool {
     ctx.stroke();
   }
 
-  #hitCorner(cx, cy) {
+  hitCorner(cx, cy) {
     const c = this.corners;
-    const ss = this.#getScreenScale();
+    const ss = this.getScreenScale();
     const hitR = 16 / ss;
     for (const [key, p] of Object.entries(c)) {
       const dx = cx - p.x;
@@ -282,19 +318,19 @@ export class TransformTool {
     return null;
   }
 
-  #hitRotate(cx, cy) {
+  hitRotate(cx, cy) {
     const p = this.rotHandlePos;
-    const ss = this.#getScreenScale();
+    const ss = this.getScreenScale();
     const hitR = 20 / ss;
     const dx = cx - p.x;
     const dy = cy - p.y;
     return dx * dx + dy * dy < hitR * hitR;
   }
 
-  #hitImage(cx, cy) {
+  hitImage(cx, cy) {
     const dx = cx - this.pos.x;
     const dy = cy - this.pos.y;
-    const { cos, sin } = this.#trig();
+    const { cos, sin } = this.trig();
     const lx = dx * cos + dy * sin;
     const ly = -dx * sin + dy * cos;
     const hw = (this.imgW * this.scale) / 2;
@@ -302,78 +338,244 @@ export class TransformTool {
     return Math.abs(lx) < hw && Math.abs(ly) < hh;
   }
 
-  #bindEvents() {
-    this.canvas.addEventListener("pointerdown", this.#handlePointerDown);
-    window.addEventListener("pointermove", this.#handlePointerMove);
-    window.addEventListener("pointerup", this.#handlePointerUp);
-    window.addEventListener("keydown", this.#handleKeyDown);
+  selectionPointerDown(e) {
+    const p = this.getCanvasPoint(e);
+    this.selStart = { x: p.x, y: p.y };
+    this.selEnd = { x: p.x, y: p.y };
   }
 
-  #updateCursor(e) {
-    const p = this.#getCanvasPoint(e);
-    if (this.#hitCorner(p.x, p.y)) {
+  selectionPointerMove(e) {
+    if (!this.selStart) return;
+    const p = this.getCanvasPoint(e);
+    this.selEnd = { x: p.x, y: p.y };
+  }
+
+  selectionPointerUp() {
+    if (!this.selStart || !this.selEnd) return;
+    const dx = Math.abs(this.selEnd.x - this.selStart.x);
+    const dy = Math.abs(this.selEnd.y - this.selStart.y);
+    if (dx < 4 || dy < 4) {
+      this.selStart = null;
+      this.selEnd = null;
+      return;
+    }
+    this.enterTransformPhase();
+  }
+
+  async enterTransformPhase() {
+    const x1 = Math.min(this.selStart.x, this.selEnd.x);
+    const y1 = Math.min(this.selStart.y, this.selEnd.y);
+    const x2 = Math.max(this.selStart.x, this.selEnd.x);
+    const y2 = Math.max(this.selStart.y, this.selEnd.y);
+
+    this.selX = Math.max(0, Math.floor(x1));
+    this.selY = Math.max(0, Math.floor(y1));
+    this.selW = Math.min(this.cw, Math.ceil(x2)) - this.selX;
+    this.selH = Math.min(this.ch, Math.ceil(y2)) - this.selY;
+
+    if (this.selW < 2 || this.selH < 2) {
+      this.selStart = null;
+      this.selEnd = null;
+      return;
+    }
+
+    const layer = this.rkgk.getLayer(this.sourceLayerId);
+    if (!layer) {
+      this.cancel();
+      return;
+    }
+
+    const imageData = layer.renderer.context.getImageData(
+      this.selX,
+      this.selY,
+      this.selW,
+      this.selH,
+    );
+    const oc = new OffscreenCanvas(this.selW, this.selH);
+    oc.getContext("2d").putImageData(imageData, 0, 0);
+    this.image = oc.transferToImageBitmap();
+    this.imgW = this.selW;
+    this.imgH = this.selH;
+
+    this.savedOriginal = layer.renderer.context.getImageData(
+      this.selX,
+      this.selY,
+      this.selW,
+      this.selH,
+    );
+    layer.renderer.context.clearRect(
+      this.selX,
+      this.selY,
+      this.selW,
+      this.selH,
+    );
+
+    this.pos = { x: this.selX + this.selW / 2, y: this.selY + this.selH / 2 };
+    this.scale = 1;
+    this.rotation = 0;
+
+    this.phase = "transform";
+    this.selStart = null;
+    this.selEnd = null;
+
+    if (this.controls) {
+      this.controls.style.display = "";
+    }
+  }
+
+  restoreOriginal() {
+    if (!this.savedOriginal) return;
+    const layer = this.rkgk.getLayer(this.sourceLayerId);
+    if (layer) {
+      layer.renderer.context.putImageData(
+        this.savedOriginal,
+        this.selX,
+        this.selY,
+      );
+    }
+    this.savedOriginal = null;
+  }
+
+  renderSelectionDraw(ctx) {
+    if (!this.selStart || !this.selEnd) return;
+
+    ctx.fillStyle = "rgba(0,0,0,0.08)";
+    ctx.fillRect(0, 0, this.cw, this.ch);
+
+    const x1 = Math.min(this.selStart.x, this.selEnd.x);
+    const y1 = Math.min(this.selStart.y, this.selEnd.y);
+    const x2 = Math.max(this.selStart.x, this.selEnd.x);
+    const y2 = Math.max(this.selStart.y, this.selEnd.y);
+
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+    ctx.setLineDash([]);
+
+    const r = 5;
+    for (const p of [[x1, y1], [x2, y1], [x2, y2], [x1, y2]]) {
+      ctx.beginPath();
+      ctx.arc(p[0], p[1], r, 0, Math.PI * 2);
+      ctx.fillStyle = "#fff";
+      ctx.fill();
+    }
+
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.font = "13px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("Drag to select, then Enter to transform", this.cw / 2, 24);
+  }
+
+  bindEvents() {
+    this.canvas.addEventListener("pointerdown", this.handlePointerDown);
+    window.addEventListener("pointermove", this.handlePointerMove);
+    window.addEventListener("pointerup", this.handlePointerUp);
+    window.addEventListener("keydown", this.handleKeyDown);
+  }
+
+  updateCursor(e) {
+    const p = this.getCanvasPoint(e);
+    if (this.hitCorner(p.x, p.y)) {
       this.canvas.style.cursor = "nwse-resize";
-    } else if (this.#hitRotate(p.x, p.y)) {
+    } else if (this.hitRotate(p.x, p.y)) {
       this.canvas.style.cursor = "grab";
-    } else if (this.#hitImage(p.x, p.y)) {
+    } else if (this.hitImage(p.x, p.y)) {
       this.canvas.style.cursor = "move";
     } else {
       this.canvas.style.cursor = "default";
     }
   }
 
-  #createControls() {
+  createControls() {
     this.controls = document.createElement("div");
     this.controls.style.cssText = `
       position: fixed; bottom: 24px; left: 50%; z-index: 1001;
-      transform: translateX(-50%); display: flex; gap: 10px;
+      transform: translateX(-50%); display: flex;
     `;
 
     const okBtn = document.createElement("button");
-    okBtn.textContent = "\u2713 Place";
-    okBtn.className = "button";
-    okBtn.style.cssText = "font-size: 15px; padding: 8px 18px;";
+    okBtn.textContent = "\u2713 Apply";
+    okBtn.style.cssText = `
+      padding: 6px 14px; border: none; border-radius: 4px;
+      cursor: pointer; font-weight: bold;
+      background: var(--floating-menu-control-color);
+      color: var(--floating-menu-text-color);
+    `;
     okBtn.onclick = () => this.confirm();
 
     const cancelBtn = document.createElement("button");
     cancelBtn.textContent = "\u2715 Cancel";
-    cancelBtn.className = "button";
-    cancelBtn.style.cssText = "font-size: 15px; padding: 8px 18px;";
+    cancelBtn.style.cssText = `
+      padding: 6px 14px; border: none; border-radius: 4px;
+      cursor: pointer; font-weight: bold;
+      background: var(--floating-menu-control-color);
+      color: var(--floating-menu-text-color);
+    `;
     cancelBtn.onclick = () => this.cancel();
+    cancelBtn.style.marginLeft = "24px";
 
     this.controls.appendChild(okBtn);
     this.controls.appendChild(cancelBtn);
     document.body.appendChild(this.controls);
+
+    if (this.mode === "select") {
+      this.controls.style.display = "none";
+    }
   }
 
   confirm() {
-    const layerId = this.rkgk.addLayerFromImageWithTransform(
-      this.image,
-      this.imgW,
-      this.imgH,
-      this.pos.x,
-      this.pos.y,
-      this.scale,
-      this.rotation,
-    );
-    this.#cleanup();
-    this.onConfirm?.(layerId);
+    if (this.mode === "select") {
+      const pasteLayer = this.rkgk.getLayer(this.sourceLayerId);
+      if (!pasteLayer) {
+        this.cancel();
+        return;
+      }
+
+      const ctx = pasteLayer.renderer.context;
+      ctx.save();
+      ctx.translate(this.pos.x, this.pos.y);
+      ctx.rotate(this.rotation);
+      ctx.scale(this.scale, this.scale);
+      ctx.drawImage(this.image, -this.imgW / 2, -this.imgH / 2);
+      ctx.restore();
+      pasteLayer.snapshot();
+      this.savedOriginal = null;
+
+      this.cleanup();
+      this.onConfirm?.();
+    } else {
+      const layerId = this.rkgk.addLayerFromImageWithTransform(
+        this.image,
+        this.imgW,
+        this.imgH,
+        this.pos.x,
+        this.pos.y,
+        this.scale,
+        this.rotation,
+      );
+      this.cleanup();
+      this.onConfirm?.(layerId);
+    }
   }
 
   cancel() {
-    this.#cleanup();
+    if (this.mode === "select" && this.phase === "transform") {
+      this.restoreOriginal();
+    }
+    this.cleanup();
     this.onCancel?.();
   }
 
-  #cleanup() {
+  cleanup() {
     this.running = false;
     this.observer?.disconnect();
     this.mainCanvas.style.pointerEvents = "";
     this.mainCanvas.style.cursor = "";
-    this.canvas.removeEventListener("pointerdown", this.#handlePointerDown);
-    window.removeEventListener("pointermove", this.#handlePointerMove);
-    window.removeEventListener("pointerup", this.#handlePointerUp);
-    window.removeEventListener("keydown", this.#handleKeyDown);
+    this.canvas.removeEventListener("pointerdown", this.handlePointerDown);
+    window.removeEventListener("pointermove", this.handlePointerMove);
+    window.removeEventListener("pointerup", this.handlePointerUp);
+    window.removeEventListener("keydown", this.handleKeyDown);
     this.canvas.remove();
     this.controls?.remove();
   }

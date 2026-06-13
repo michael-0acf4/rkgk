@@ -735,7 +735,15 @@ export class RkgkEngine {
    * @param {number} scale
    * @param {number} rotation radians
    */
-  addLayerFromImageWithTransform(imageSource, imgWidth, imgHeight, cx, cy, scale, rotation) {
+  addLayerFromImageWithTransform(
+    imageSource,
+    imgWidth,
+    imgHeight,
+    cx,
+    cy,
+    scale,
+    rotation,
+  ) {
     const { canvas } = this.renderer;
     const layer = new Layer(canvas.width, canvas.height);
     const { context } = layer.renderer;
@@ -744,7 +752,13 @@ export class RkgkEngine {
     context.translate(cx, cy);
     context.rotate(rotation);
     context.scale(scale, scale);
-    context.drawImage(imageSource, -imgWidth / 2, -imgHeight / 2, imgWidth, imgHeight);
+    context.drawImage(
+      imageSource,
+      -imgWidth / 2,
+      -imgHeight / 2,
+      imgWidth,
+      imgHeight,
+    );
     context.restore();
 
     layer.snapshot();
