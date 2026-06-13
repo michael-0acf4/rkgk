@@ -429,15 +429,18 @@ export class LayerMenu extends VerticalMenu {
     const layer = this.rkgk.getLayer(this.rkgk.currentLayerId);
     if (!layer) return;
 
+    this.selectBtn.classList.add("active");
     new TransformTool(this.rkgk, null, {
       mode: "select",
       sourceLayerId: this.rkgk.currentLayerId,
       onConfirm: () => {
+        this.selectBtn.classList.remove("active");
         GLOBALS.UNSAVED = true;
         this.update();
         updateLayerThumbnail(layer).catch(console.error);
       },
       onCancel: () => {
+        this.selectBtn.classList.remove("active");
         this.update();
       },
     });
@@ -551,8 +554,6 @@ export class BrushMenu extends VerticalMenu {
       brushLabel.innerHTML = `
       <div class="basic-item-container">
         <div><b>${brush?.name ?? ""}</b></div>
-        <div>Size: ${size.value}px</div>
-        <div>Hardness: ${hardness.value}</div>
       </div>
       `;
     };
@@ -583,7 +584,6 @@ export class BrushMenu extends VerticalMenu {
 
     const bucketEl = document.createElement("div");
     bucketEl.className = "thumb-bucket";
-    bucketEl.dataset.tool = "bucket";
     bucketEl.title = "Bucket fill";
     bucketEl.innerHTML = "🪣";
     bucketEl.onclick = () => {
@@ -592,7 +592,6 @@ export class BrushMenu extends VerticalMenu {
       this.updateSelection(list);
       updateActiveBrushLabel();
     };
-    list.appendChild(bucketEl);
 
     const swatchRow = document.createElement("div");
     swatchRow.className = "color-swatches";
@@ -622,12 +621,6 @@ export class BrushMenu extends VerticalMenu {
     this.bucketEl = bucketEl;
     this.toolList = list;
 
-    this.add(mainLabel);
-    this.add(list);
-    this.add(swatchRow);
-    this.add(wrapSlider(size, "Size", (v) => v + "px"));
-    this.add(wrapSlider(hardness, "Hard", (v) => Math.round(v * 100) + "%"));
-
     this.colorPicker = new ColorPicker({
       initialColor: this.activeSettings.color,
       onChange: (hex) => {
@@ -637,9 +630,15 @@ export class BrushMenu extends VerticalMenu {
         this.emitChange();
       },
     });
-    this.add(this.colorPicker.root);
 
+    this.add(mainLabel);
+    this.add(list);
     this.add(brushLabel);
+    this.add(wrapSlider(size, "Size", (v) => v + "px"));
+    this.add(wrapSlider(hardness, "Hard", (v) => Math.round(v * 100) + "%"));
+    this.add(this.colorPicker.root);
+    this.add(bucketEl);
+    this.add(swatchRow);
 
     updateActiveBrushLabel();
     this.updateSelection(list);
@@ -669,13 +668,13 @@ export class BrushMenu extends VerticalMenu {
 
   updateSelection(list) {
     [...list.children].forEach((el) => {
-      const isBucket = el.dataset.tool === "bucket";
-      const active = isBucket
-        ? this.rkgk?.tool === "bucket"
-        : this.rkgk?.tool !== "bucket" &&
-          el.dataset.id === this.state.activeBrushId;
+      const active =
+        el.dataset.id === this.state.activeBrushId && this.rkgk?.tool !== "bucket";
       el.classList.toggle("active", !!active);
     });
+    if (this.bucketEl) {
+      this.bucketEl.classList.toggle("active", this.rkgk?.tool === "bucket");
+    }
   }
 }
 
