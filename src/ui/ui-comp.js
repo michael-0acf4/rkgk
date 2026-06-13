@@ -1,6 +1,7 @@
 import { GLOBALS } from "../index.js";
 import { Layer, stdStaticPapers } from "../rkgk/rkgk.js";
 import { clearTemporaryState } from "./ui-persist.js";
+import { TransformTool } from "./transform-tool.js";
 import {
   acceptWindow,
   createSpacer,
@@ -118,6 +119,12 @@ export class LayerMenu extends VerticalMenu {
       );
     };
 
+    this.importBtn = document.createElement("button");
+    this.importBtn.className = "button";
+    this.importBtn.textContent = "Img";
+    this.importBtn.title = "Import image as new layer";
+    this.importBtn.onclick = () => this.pickAndImportImage();
+
     this.opacityInput = document.createElement("input");
     this.opacityInput.type = "range";
     this.opacityInput.className = "slider";
@@ -182,6 +189,7 @@ export class LayerMenu extends VerticalMenu {
     this.layerList.className = "layer-list";
 
     this.add(this.addBtn);
+    this.add(this.importBtn);
     this.add(this.opacityInput);
     this.add(this.paperSelect);
     this.add(this.paperStrength);
@@ -332,6 +340,42 @@ export class LayerMenu extends VerticalMenu {
     [...this.layerList.children].forEach((el) => {
       el.classList.toggle("active", el.dataset.id === this.rkgk.currentLayerId);
     });
+  }
+
+  async pickAndImportImage() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.style.display = "none";
+
+    input.addEventListener("change", async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      const sp = startSpin();
+      try {
+        const bitmap = await createImageBitmap(file);
+        sp.unload();
+
+        new TransformTool(this.rkgk, bitmap, {
+          onConfirm: (layerId) => {
+            this.rkgk.currentLayerId = layerId;
+            GLOBALS.UNSAVED = true;
+            this.update();
+            updateLayerThumbnail(this.rkgk.getLayer(layerId)).catch(
+              console.error,
+            );
+          },
+        });
+      } catch (err) {
+        console.error("Failed to import image:", err);
+        sp.unload();
+      }
+    });
+
+    document.body.appendChild(input);
+    input.click();
+    input.remove();
   }
 }
 

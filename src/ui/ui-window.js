@@ -544,7 +544,7 @@ export function referenceWindow(file, position) {
   const url = URL.createObjectURL(file);
   const win = new FloatingWindow(document.body, {
     title: file.name,
-    width: 360,
+    width: null,
     height: null,
     x: position.clientX,
     y: position.clientY,

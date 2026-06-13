@@ -703,6 +703,56 @@ export class RkgkEngine {
   }
 
   /**
+   * @param {ImageBitmap | CanvasImageSource} imageSource
+   * @param {number} imgWidth
+   * @param {number} imgHeight
+   */
+  addLayerFromImage(imageSource, imgWidth, imgHeight) {
+    const { canvas } = this.renderer;
+    const cw = canvas.width;
+    const ch = canvas.height;
+    const layer = new Layer(cw, ch);
+    const { context } = layer.renderer;
+
+    const scale = Math.min(cw / imgWidth, ch / imgHeight);
+    const dw = imgWidth * scale;
+    const dh = imgHeight * scale;
+    const dx = (cw - dw) / 2;
+    const dy = (ch - dh) / 2;
+
+    context.drawImage(imageSource, dx, dy, dw, dh);
+    layer.snapshot();
+    this.layers.push(layer);
+    return layer.id;
+  }
+
+  /**
+   * @param {ImageBitmap | CanvasImageSource} imageSource
+   * @param {number} imgWidth
+   * @param {number} imgHeight
+   * @param {number} cx center x
+   * @param {number} cy center y
+   * @param {number} scale
+   * @param {number} rotation radians
+   */
+  addLayerFromImageWithTransform(imageSource, imgWidth, imgHeight, cx, cy, scale, rotation) {
+    const { canvas } = this.renderer;
+    const layer = new Layer(canvas.width, canvas.height);
+    const { context } = layer.renderer;
+
+    context.save();
+    context.translate(cx, cy);
+    context.rotate(rotation);
+    context.scale(scale, scale);
+    context.drawImage(imageSource, -imgWidth / 2, -imgHeight / 2, imgWidth, imgHeight);
+    context.restore();
+
+    layer.snapshot();
+    this.layers.push(layer);
+    return layer.id;
+  }
+
+  /**
    * @param {string} id
    */
   removeLayer(id) {
