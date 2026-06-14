@@ -534,7 +534,7 @@ export class Layer {
         context.putImageData(previous, 0, 0);
         this._inkDirty = true;
       }
-    } else if (direction == "forward") {
+    } else if (direction === "forward") {
       if (this.redoHistory.length > 0) {
         const next = this.redoHistory.pop();
         context.putImageData(next, 0, 0);
@@ -937,11 +937,6 @@ export class RkgkEngine {
       }
       case "move": {
         const layer = this.getLayer(this.currentLayerId);
-        if (
-          event.pointerId == state.activePointerId && state.drawing && layer &&
-          state.lastPos
-        ) {
-        }
 
         if (
           event.pointerId == state.activePointerId &&
