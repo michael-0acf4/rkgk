@@ -1,4 +1,4 @@
-const CACHE_NAME = "v-20260613-205454";
+const CACHE_NAME = "v-20260614-153539";
 const ASSETS = [
   "/",
   "/src/index.js",
@@ -9,18 +9,19 @@ const ASSETS = [
   "/src/rkgk/rkgk-brushes.js",
   "/src/rkgk/rkgk.js",
   "/src/ui/color-picker.js",
+  "/src/ui/keyboard-shortcuts.js",
   "/src/ui/transform-tool.js",
   "/src/ui/ui-comp.js",
   "/src/ui/ui-persist.js",
   "/src/ui/ui-window.js",
   "/textures/pencil.png",
-  "/index.html"
+  "/index.html",
 ];
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)),
   );
 });
 
@@ -30,12 +31,12 @@ self.addEventListener("activate", (event) => {
       return Promise.all(keys.map((key) => {
         if (key !== CACHE_NAME) return caches.delete(key);
       }));
-    })
+    }),
   );
 });
 
 self.addEventListener("fetch", (event) => {
   event.respondWith(
-    caches.match(event.request).then((res) => res || fetch(event.request))
+    caches.match(event.request).then((res) => res || fetch(event.request)),
   );
 });

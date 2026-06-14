@@ -476,9 +476,7 @@ export class Layer {
     /** @type {Renderer} */
     this.renderer = {
       canvas,
-      context: canvas.getContext("2d", {
-        willReadFrequently: true,
-      }),
+      context: canvas.getContext("2d"),
     };
     this.isVisible = true;
     this.opacity = 1.0;
@@ -488,6 +486,9 @@ export class Layer {
     this.redoHistory = [];
     /** @type {Paper | null} */
     this.paper = null;
+    this._inkDirty = true;
+    /** @type {OffscreenCanvas | null} */
+    this._paperCache = null;
   }
 
   snapshot() {
@@ -497,6 +498,7 @@ export class Layer {
     }
 
     this.redoHistory = []; // !
+    this._inkDirty = true;
   }
 
   /**
@@ -530,12 +532,14 @@ export class Layer {
         this.redoHistory.push(last);
         const previous = this.history[this.history.length - 1];
         context.putImageData(previous, 0, 0);
+        this._inkDirty = true;
       }
     } else if (direction == "forward") {
       if (this.redoHistory.length > 0) {
         const next = this.redoHistory.pop();
         context.putImageData(next, 0, 0);
         this.history.push(next);
+        this._inkDirty = true;
       }
     }
   }
@@ -561,6 +565,7 @@ export class Layer {
     const fillRgba = cssColorToRgba(fillColor);
     floodFill(imageData, px, py, fillRgba);
     context.putImageData(imageData, 0, 0);
+    this._inkDirty = true;
   }
 
   /**
@@ -633,9 +638,7 @@ export class RkgkEngine {
     /** @type {Renderer} */
     this.renderer = {
       canvas,
-      context: canvas.getContext("2d", {
-        willReadFrequently: true,
-      }),
+      context: canvas.getContext("2d"),
     };
     this.currentLayerId = null;
     /** @type {Layer[]} */
@@ -664,34 +667,70 @@ export class RkgkEngine {
     layer.snapshot();
   }
 
-  render() {
-    const { context: mainContext, canvas: mainCanvas } = this.renderer;
-    mainContext.clearRect(
-      0,
-      0,
-      mainCanvas.width,
-      mainCanvas.height,
-    );
-
+  #compositeAll(ctx, clipRect) {
     for (const layer of this.layers) {
       if (!layer.isVisible) continue;
       let sourceCanvas;
       if (layer.paper) {
-        sourceCanvas = layer.paper.absorbInk(layer.renderer.canvas);
+        if (layer._inkDirty || !layer._paperCache) {
+          const masked = layer.paper.absorbInk(layer.renderer.canvas);
+          if (
+            !layer._paperCache ||
+            layer._paperCache.width !== masked.width ||
+            layer._paperCache.height !== masked.height
+          ) {
+            layer._paperCache = new OffscreenCanvas(
+              masked.width,
+              masked.height,
+            );
+          }
+          layer._paperCache.getContext("2d").drawImage(masked, 0, 0);
+          layer._inkDirty = false;
+        }
+        sourceCanvas = layer._paperCache;
       } else {
         sourceCanvas = layer.renderer.canvas;
       }
 
-      const oldAlpha = mainContext.globalAlpha;
-      mainContext.globalAlpha = layer.opacity;
-      mainContext.drawImage(sourceCanvas, 0, 0);
-      mainContext.globalAlpha = oldAlpha;
+      const oldAlpha = ctx.globalAlpha;
+      ctx.globalAlpha = layer.opacity;
+      if (clipRect) {
+        ctx.drawImage(
+          sourceCanvas,
+          clipRect.x,
+          clipRect.y,
+          clipRect.width,
+          clipRect.height,
+          clipRect.x,
+          clipRect.y,
+          clipRect.width,
+          clipRect.height,
+        );
+      } else {
+        ctx.drawImage(sourceCanvas, 0, 0);
+      }
+      ctx.globalAlpha = oldAlpha;
       // SLOW! reserve this for snapshots
       // const buffer = layer.getImageDataBuffer();
       // if (buffer) {
       //   mainContext.putImageData(buffer, 0, 0);
       // }
     }
+  }
+
+  render(clipRect) {
+    const { context: mainContext, canvas: mainCanvas } = this.renderer;
+    if (clipRect) {
+      mainContext.clearRect(
+        clipRect.x,
+        clipRect.y,
+        clipRect.width,
+        clipRect.height,
+      );
+    } else {
+      mainContext.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+    }
+    this.#compositeAll(mainContext, clipRect);
   }
 
   addLayer() {
@@ -833,6 +872,7 @@ export class RkgkEngine {
       );
 
       layer.renderer.context.putImageData(oldLayer, 0, 0);
+      layer._inkDirty = true;
     }
   }
 
@@ -840,12 +880,19 @@ export class RkgkEngine {
    * @param {boolean} transparent
    */
   async getComposedImage(transparent) {
-    return await canvasToImage(this.renderer.canvas, transparent);
+    const { canvas } = this.renderer;
+    const tempCanvas = new OffscreenCanvas(canvas.width, canvas.height);
+    const tempCtx = tempCanvas.getContext("2d");
+    this.#compositeAll(tempCtx);
+    return await canvasToImage(tempCanvas, transparent);
   }
 
   getComposedImageData() {
-    const { canvas, context } = this.renderer;
-    return context.getImageData(0, 0, canvas.width, canvas.height);
+    const { canvas } = this.renderer;
+    const tempCanvas = new OffscreenCanvas(canvas.width, canvas.height);
+    const tempCtx = tempCanvas.getContext("2d");
+    this.#compositeAll(tempCtx);
+    return tempCtx.getImageData(0, 0, canvas.width, canvas.height);
   }
 
   drawDebugNumber() {
@@ -908,6 +955,7 @@ export class RkgkEngine {
               event.pointer,
               // TODO: speed for speed curve
             );
+            layer._inkDirty = true;
             this.onStroke?.(event.pointer);
             state.lastPos = event.pointer;
           } else {

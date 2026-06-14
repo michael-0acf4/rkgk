@@ -451,6 +451,9 @@ const COLOR_SWATCHES = [
   "#000000",
   "#1a1a1a",
   "#ffffff",
+  // shading & line art
+  "#4e342e",
+  "#78909c",
   // hair
   "#6d4c41",
   "#3e2723",
@@ -463,14 +466,14 @@ const COLOR_SWATCHES = [
   "#e0ac69",
   "#c68642",
   "#8d5524",
-  // lips
-  "#ffb6c1",
-  "#ff8da1",
-  "#e57373",
   // extra skin & face
   "#fce4d6",
   "#ffe0b2",
   "#ffcdd2",
+  // lips
+  "#ffb6c1",
+  "#ff8da1",
+  "#e57373",
   // extra hair (anime)
   "#e0e0e0",
   "#ce93d8",
@@ -482,9 +485,6 @@ const COLOR_SWATCHES = [
   "#43a047",
   "#e91e63",
   "#ffd600",
-  // shading & line art
-  "#4e342e",
-  "#78909c",
   // clothing & extras
   "#283593",
   "#d32f2f",
@@ -702,8 +702,8 @@ export class BrushMenu extends VerticalMenu {
 
   updateSelection(list) {
     [...list.children].forEach((el) => {
-      const active =
-        el.dataset.id === this.state.activeBrushId && this.rkgk?.tool !== "bucket";
+      const active = el.dataset.id === this.state.activeBrushId &&
+        this.rkgk?.tool !== "bucket";
       el.classList.toggle("active", !!active);
     });
     if (this.bucketEl) {
@@ -839,6 +839,37 @@ export class CanvasViewport {
 
     this.onPan?.({ x: 0, y: 0 });
     this.onZoom?.({ scale: 1 });
+  }
+
+  getVisibleRect() {
+    if (!this.canvas) return null;
+
+    const { x, y, scale } = this.state;
+
+    let vpW, vpH;
+    if (this.viewportEl) {
+      const r = this.viewportEl.getBoundingClientRect();
+      vpW = r.width;
+      vpH = r.height;
+    } else {
+      vpW = window.innerWidth;
+      vpH = window.innerHeight;
+    }
+
+    const canvasX = -x / scale;
+    const canvasY = -y / scale;
+    const canvasW = vpW / scale;
+    const canvasH = vpH / scale;
+    const cw = this.canvas.width;
+    const ch = this.canvas.height;
+
+    const rx = Math.max(0, canvasX);
+    const ry = Math.max(0, canvasY);
+    const rw = Math.min(canvasW, cw - rx);
+    const rh = Math.min(canvasH, ch - ry);
+
+    if (rw <= 0 || rh <= 0) return null;
+    return { x: rx, y: ry, width: rw, height: rh };
   }
 
   destroy() {
@@ -990,7 +1021,7 @@ export class CanvasViewport {
     };
 
     this.onKeyDown = (e) => {
-      if (e.target.tagName === "INPUT") return;
+      if (e.target.tagName === "INPUT" && e.target.type !== "range") return;
 
       const panStep = e.shiftKey ? 50 : 10;
       const k = e.key.toLowerCase();

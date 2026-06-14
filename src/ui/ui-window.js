@@ -265,7 +265,7 @@ export function acceptWindow(title, message) {
 export function helpWindow() {
   const shortcuts = new FloatingWindow(document.body, {
     title: "Help",
-    width: 360,
+    width: 420,
     showCancel: false,
     makeUnique: true,
   });
@@ -273,17 +273,24 @@ export function helpWindow() {
   shortcuts.setContent((root) => {
     const txt = document.createElement("div");
     txt.innerHTML = `
-      <p><b>Pan</b>: Alt+drag or ↑, ↓, ←, →</p>
-      <p><b>Zoom</b>: Alt+scroll</p>
-      <p><b>Reset view</b>: <b>R</b> or click zoom %</p>
-      <p><b>Undo/Redo</b>: Ctrl+Z / Ctrl+Y</p>
-      <p><b>Save</b>: Ctrl+S (exports .rkgk file)</p>
-      <p><b>Select & move</b>: click <b>Select</b>, drag rectangle, <b>Enter</b> to transform</p>
-      <p><b>Transform</b>: <b>Enter</b> to confirm, <b>Escape</b> to cancel</p>
-      <p style="margin-top:6px"><b>References</b>: drag & drop images</p>
+      <p style="margin-top:0"><b>View &amp; Navigate</b></p>
+      <p style="margin-left:8px">Pan: Alt+drag or ↑ ↓ ← →</p>
+      <p style="margin-left:8px">Zoom: Alt+scroll</p>
+      <p style="margin-left:8px">Reset view: <b>R</b> or click zoom %</p>
+      <p style="margin-top:8px"><b>Draw</b></p>
+      <p style="margin-left:8px">Brush size: <b>[</b> smaller &nbsp; <b>]</b> larger</p>
+      <p style="margin-left:8px">Hardness: <b>Shift+[</b> softer &nbsp; <b>Shift+]</b> harder</p>
+      <p style="margin-top:8px"><b>History</b></p>
+      <p style="margin-left:8px">Undo: <b>Ctrl+Z</b></p>
+      <p style="margin-left:8px">Redo: <b>Ctrl+Y</b> or <b>Ctrl+Shift+Z</b></p>
+      <p style="margin-top:8px"><b>File</b></p>
+      <p style="margin-left:8px">Save: <b>Ctrl+S</b> (exports .rkgk file)</p>
+      <p style="margin-top:8px"><b>Select &amp; Transform</b></p>
+      <p style="margin-left:8px">Click <b>Select</b>, drag rectangle, <b>Enter</b> to transform</p>
+      <p style="margin-left:8px"><b>Enter</b> confirm &nbsp; <b>Escape</b> cancel</p>
+      <p style="margin-top:8px"><b>References</b>: drag &amp; drop images</p>
       <br/>
       <i>Contact: rkgk@afmichael.dev</i>
-      <br/>
     `;
     root.appendChild(txt);
   });

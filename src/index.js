@@ -7,6 +7,7 @@ import {
   updateBrushThumbnail,
   updateLayerThumbnail,
 } from "./ui/ui-comp.js";
+import { KeyboardShortcutRegistry } from "./ui/keyboard-shortcuts.js";
 import {
   flashElement,
   isSmallScreen,
@@ -78,7 +79,7 @@ async function main() {
 
   rkgk.fillColor = rkgk.brush?.color ?? "#000000";
 
-  new BrushMenu(
+  const brushMenu = new BrushMenu(
     document.getElementById("brushMenu"),
     {
       brushes,
@@ -147,6 +148,62 @@ async function main() {
     });
   }
 
+  // Keyboard shortcuts
+
+  function getActiveBrush() {
+    return brushes.find((b) => b.id === brushMenu.state.activeBrushId);
+  }
+
+  const kb = new KeyboardShortcutRegistry();
+
+  kb.add({ key: "[" }, () => {
+    if (rkgk.tool === "bucket") return;
+    const brush = getActiveBrush();
+    if (!brush) return;
+    const s = brushMenu.activeSettings;
+    const newSize = Math.max(2, brush.size - 5);
+    brush.size = newSize;
+    s.size = newSize;
+    brushMenu.syncUI();
+    brushMenu.emitChange();
+  });
+
+  kb.add({ key: "]" }, () => {
+    if (rkgk.tool === "bucket") return;
+    const brush = getActiveBrush();
+    if (!brush) return;
+    const s = brushMenu.activeSettings;
+    const newSize = Math.min(100, brush.size + 5);
+    brush.size = newSize;
+    s.size = newSize;
+    brushMenu.syncUI();
+    brushMenu.emitChange();
+  });
+
+  kb.add({ key: "[", shift: true }, () => {
+    if (rkgk.tool === "bucket") return;
+    const brush = getActiveBrush();
+    if (!brush) return;
+    const s = brushMenu.activeSettings;
+    const newHardness = Math.max(0.2, (brush.hardness ?? 1) - 0.1);
+    brush.hardness = newHardness;
+    s.hardness = newHardness;
+    brushMenu.syncUI();
+    brushMenu.emitChange();
+  });
+
+  kb.add({ key: "]", shift: true }, () => {
+    if (rkgk.tool === "bucket") return;
+    const brush = getActiveBrush();
+    if (!brush) return;
+    const s = brushMenu.activeSettings;
+    const newHardness = Math.min(1, (brush.hardness ?? 1) + 0.1);
+    brush.hardness = newHardness;
+    s.hardness = newHardness;
+    brushMenu.syncUI();
+    brushMenu.emitChange();
+  });
+
   // Thumbs
   Promise.all(rkgk.layers.map(updateLayerThumbnail))
     .catch(console.error);
@@ -180,7 +237,7 @@ async function main() {
 
   function draw() {
     rkgk.pollState();
-    rkgk.render();
+    rkgk.render(canvasViewport.getVisibleRect());
     requestAnimationFrame(draw);
   }
   draw();
