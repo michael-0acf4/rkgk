@@ -518,6 +518,7 @@ export class Layer {
     } else {
       this.paper = null;
     }
+    this._inkDirty = true;
   }
 
   /**
@@ -684,7 +685,9 @@ export class RkgkEngine {
               masked.height,
             );
           }
-          layer._paperCache.getContext("2d").drawImage(masked, 0, 0);
+          const cacheCtx = layer._paperCache.getContext("2d");
+          cacheCtx.clearRect(0, 0, layer._paperCache.width, layer._paperCache.height);
+          cacheCtx.drawImage(masked, 0, 0);
           layer._inkDirty = false;
         }
         sourceCanvas = layer._paperCache;

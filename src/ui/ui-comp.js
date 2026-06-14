@@ -253,6 +253,7 @@ export class LayerMenu extends VerticalMenu {
         height,
         strength,
       ).then(() => {
+        layer._inkDirty = true;
         sp.unload();
       });
     }
