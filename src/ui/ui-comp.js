@@ -698,6 +698,8 @@ export class BrushMenu extends VerticalMenu {
     this.controls.hardness.value = s.hardness;
     if (this.rkgk) this.rkgk.fillColor = s.color;
     this.colorPicker.setColor(s.color);
+    updateTitle(this.controls.size, "Brush Size", "px");
+    updateTitle(this.controls.hardness, "Brush Hardness");
   }
 
   updateSelection(list) {
@@ -844,29 +846,44 @@ export class CanvasViewport {
   getVisibleRect() {
     if (!this.canvas) return null;
 
-    const { x, y, scale } = this.state;
+    const canvasRect = this.canvas.getBoundingClientRect();
 
-    let vpW, vpH;
+    let vpRect;
     if (this.viewportEl) {
-      const r = this.viewportEl.getBoundingClientRect();
-      vpW = r.width;
-      vpH = r.height;
+      vpRect = this.viewportEl.getBoundingClientRect();
     } else {
-      vpW = window.innerWidth;
-      vpH = window.innerHeight;
+      vpRect = {
+        left: 0,
+        top: 0,
+        width: window.innerWidth,
+        height: window.innerHeight,
+      };
     }
 
-    const canvasX = -x / scale;
-    const canvasY = -y / scale;
-    const canvasW = vpW / scale;
-    const canvasH = vpH / scale;
+    const left = Math.max(vpRect.left, canvasRect.left);
+    const top = Math.max(vpRect.top, canvasRect.top);
+    const right = Math.min(
+      vpRect.left + vpRect.width,
+      canvasRect.left + canvasRect.width,
+    );
+    const bottom = Math.min(
+      vpRect.top + vpRect.height,
+      canvasRect.top + canvasRect.height,
+    );
+
+    if (left >= right || top >= bottom) return null;
+
+    const cssW = canvasRect.width;
+    const cssH = canvasRect.height;
     const cw = this.canvas.width;
     const ch = this.canvas.height;
+    const pxScaleX = cw / cssW;
+    const pxScaleY = ch / cssH;
 
-    const rx = Math.max(0, canvasX);
-    const ry = Math.max(0, canvasY);
-    const rw = Math.min(canvasW, cw - rx);
-    const rh = Math.min(canvasH, ch - ry);
+    const rx = Math.max(0, (left - canvasRect.left) * pxScaleX);
+    const ry = Math.max(0, (top - canvasRect.top) * pxScaleY);
+    const rw = Math.min((right - left) * pxScaleX, cw - rx);
+    const rh = Math.min((bottom - top) * pxScaleY, ch - ry);
 
     if (rw <= 0 || rh <= 0) return null;
     return { x: rx, y: ry, width: rw, height: rh };

@@ -266,6 +266,7 @@ export function helpWindow() {
   const shortcuts = new FloatingWindow(document.body, {
     title: "Help",
     width: 420,
+    height: 420,
     showCancel: false,
     makeUnique: true,
   });
