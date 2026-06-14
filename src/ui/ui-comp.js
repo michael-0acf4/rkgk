@@ -467,12 +467,46 @@ const COLOR_SWATCHES = [
   "#ffb6c1",
   "#ff8da1",
   "#e57373",
-  // others
-  "#42a5f5",
-  "#66bb6a",
-  "#ab47bc",
-  "#ff7043",
-  "#ef5350",
+  // extra skin & face
+  "#fce4d6",
+  "#ffe0b2",
+  "#ffcdd2",
+  // extra hair (anime)
+  "#e0e0e0",
+  "#ce93d8",
+  "#80deea",
+  "#a5d6a7",
+  "#ffcc80",
+  // vivid accents
+  "#1e88e5",
+  "#43a047",
+  "#e91e63",
+  "#ffd600",
+  // shading & line art
+  "#4e342e",
+  "#78909c",
+  // clothing & extras
+  "#283593",
+  "#d32f2f",
+  // dark shades
+  "#212121",
+  "#0d47a1",
+  "#1b5e20",
+  "#4a148c",
+  // vivid brights
+  "#00e5ff",
+  "#76ff03",
+  "#ffea00",
+  "#d500f9",
+  "#ff3d00",
+  "#ff4081",
+  // clothing colors
+  "#455a64",
+  "#f44336",
+  "#2196f3",
+  "#4caf50",
+  "#9e9e9e",
+  "#795548",
 ];
 
 export class BrushMenu extends VerticalMenu {
